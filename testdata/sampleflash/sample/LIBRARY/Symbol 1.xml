@@ -1,0 +1,94 @@
+<DOMSymbolItem xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://ns.adobe.com/xfl/2008/" name="Symbol 1" itemID="542ff652-000001e0" lastModified="1412429479">
+  <timeline>
+    <DOMTimeline name="Symbol 1">
+      <layers>
+        <DOMLayer name="Layer 2" color="#9933CC" current="true" isSelected="true">
+          <frames>
+            <DOMFrame index="0" duration="8" tweenType="motion" motionTweenSnap="true" keyMode="22017">
+              <elements>
+                <DOMSymbolInstance libraryItemName="Tween 1" symbolType="graphic" loop="loop">
+                  <matrix>
+                    <Matrix tx="20" ty="40"/>
+                  </matrix>
+                  <transformationPoint>
+                    <Point/>
+                  </transformationPoint>
+                </DOMSymbolInstance>
+              </elements>
+            </DOMFrame>
+            <DOMFrame index="8" duration="21" tweenType="motion" motionTweenSnap="true" keyMode="22017">
+              <elements>
+                <DOMSymbolInstance libraryItemName="Tween 2" selected="true" symbolType="graphic" loop="loop">
+                  <matrix>
+                    <Matrix tx="40" ty="30"/>
+                  </matrix>
+                  <transformationPoint>
+                    <Point/>
+                  </transformationPoint>
+                </DOMSymbolInstance>
+              </elements>
+            </DOMFrame>
+            <DOMFrame index="29" keyMode="9728">
+              <elements>
+                <DOMSymbolInstance libraryItemName="Tween 3" selected="true" symbolType="graphic" loop="loop">
+                  <matrix>
+                    <Matrix tx="15" ty="25"/>
+                  </matrix>
+                  <transformationPoint>
+                    <Point/>
+                  </transformationPoint>
+                </DOMSymbolInstance>
+              </elements>
+            </DOMFrame>
+          </frames>
+        </DOMLayer>
+        <DOMLayer name="Layer 1" color="#4FFF4F">
+          <frames>
+            <DOMFrame index="0" duration="30" keyMode="9728">
+              <elements>
+                <DOMGroup>
+                  <matrix>
+                    <Matrix tx="-195" ty="-135"/>
+                  </matrix>
+                  <members>
+                    <DOMShape>
+                      <matrix>
+                        <Matrix tx="-195" ty="-135"/>
+                      </matrix>
+                      <fills>
+                        <FillStyle index="1">
+                          <SolidColor color="#FFFFFF"/>
+                        </FillStyle>
+                      </fills>
+                      <strokes>
+                        <StrokeStyle index="1">
+                          <SolidStroke scaleMode="normal" weight="9.75">
+                            <fill>
+                              <SolidColor/>
+                            </fill>
+                          </SolidStroke>
+                        </StrokeStyle>
+                      </strokes>
+                      <edges>
+                        <Edge fillStyle1="1" strokeStyle="1" edges="!4753 2846S6[4900 2993 4900 3200!4900 3200[4900 3407 4753 3553!4753 3553[4607 3700 4400 3700!4400 3700[4193 3700 4046 3553!4046 3553[3900 3407 3900 3200!3900 3200[3900 2993 4046 2846!4046 2846[4193 2700 4400 2700!4400 2700[4607 2700 4753
+ 2846"/>
+                        <Edge cubics="!4753 2846(4753,2846;4851,2944 4900,3062 4900,3200q4753 2846Q4900 2993q4900 3200);"/>
+                        <Edge cubics="!4046 2846(4046,2846;4144,2749 4262,2700 4400,2700q4046 2846Q4193 2700q4400 2700);"/>
+                        <Edge cubics="!3900 3200(;3900,3062 3949,2944 4046,2846q3900 3200Q3900 2993q4046 2846)4046,2846;"/>
+                        <Edge cubics="!4400 3700(;4262,3700 4144,3651 4046,3553q4400 3700Q4193 3700q4046 3553)4046,3553;"/>
+                        <Edge cubics="!4400 2700(4400,2700;4538,2700 4656,2749 4753,2846q4400 2700Q4607 2700q4753 2846);"/>
+                        <Edge cubics="!4046 3553(4046,3553;3949,3456 3900,3338 3900,3200q4046 3553Q3900 3407q3900 3200);"/>
+                        <Edge cubics="!4753 3553(4753,3553;4656,3651 4538,3700 4400,3700q4753 3553Q4607 3700q4400 3700);"/>
+                        <Edge cubics="!4900 3200(;4900,3338 4851,3456 4753,3553q4900 3200Q4900 3407q4753 3553);"/>
+                      </edges>
+                    </DOMShape>
+                  </members>
+                </DOMGroup>
+              </elements>
+            </DOMFrame>
+          </frames>
+        </DOMLayer>
+      </layers>
+    </DOMTimeline>
+  </timeline>
+</DOMSymbolItem>
