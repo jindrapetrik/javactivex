@@ -11,7 +11,7 @@ Library Compilation
 
 Library Usage
 ======================
-1. Get the GUID of ActiveX component you want to use. Guid is the string in format"`{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}`"
+1. Get the GUID of ActiveX component you want to use. Guid is the string in format<br />"`{xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}`"
 2. Run `com.jpexs.javactivex.generateJavaDefinition(GUID)`, it generates whole class
 3. Place the class in appropriate directory and change its package
 4. Use the class as standard AWT component - it extends java.awt.Panel
