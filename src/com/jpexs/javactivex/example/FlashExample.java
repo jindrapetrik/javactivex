@@ -10,6 +10,8 @@ import java.awt.Frame;
 import java.awt.Panel;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 
@@ -18,18 +20,18 @@ import java.awt.event.WindowEvent;
  *
  * @author JPEXS
  */
-public class ActiveXExample extends Frame {
+public class FlashExample extends Frame {
 
     private ShockwaveFlash swfPlayer;
+    private final Panel axPanel=new Panel();
     
-    //TODO: WMP - {6BF52A52-394A-11d3-B153-00C04F79FAA6}
 
-    public ActiveXExample() {
+    public FlashExample() {
         setSize(800, 600);
-        setTitle("Sample ActiveX Component in Java");
+        setTitle("Sample ActiveX Component in Java - Flash");
         setLayout(new BorderLayout());
-        swfPlayer = new ShockwaveFlash();
-        add(swfPlayer, BorderLayout.CENTER);
+        swfPlayer = new ShockwaveFlash(axPanel); 
+        add(axPanel, BorderLayout.CENTER);
         addWindowListener(new WindowAdapter() {
 
             @Override
@@ -53,7 +55,7 @@ public class ActiveXExample extends Frame {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                FileDialog fd = new FileDialog(ActiveXExample.this, "Open SWF");
+                FileDialog fd = new FileDialog(FlashExample.this, "Open SWF");
                 fd.setMultipleMode(false);
                 fd.setVisible(true);
                 String file = fd.getDirectory() + "/" + fd.getFile();
@@ -76,16 +78,14 @@ public class ActiveXExample extends Frame {
             public void actionPerformed(ActionEvent e) {
                 swfPlayer.Zoom((int) Math.round(100 / (1 / 1.1)));
             }
-        });
+        });               
     }
 
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {                        
-        new ActiveXExample().setVisible(true);
-        
-        
+       new FlashExample().setVisible(true);              
     }
 
 }

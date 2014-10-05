@@ -47,9 +47,11 @@ type
       FReturnType : TParameter;
       FParameters : TObjectList;
       FDocString : Widestring;
+      FOptionalParamCount : Integer;
     public
       constructor Create;
       destructor Destroy; override;
+      property OptionalParamCount:Integer read FOptionalParamCount;
       function Name : Widestring;
       function MemberID : TMemberID;
       function InvokeKind : TInvokeKind;
@@ -121,7 +123,7 @@ type
       function FindGUID(AGUID : TGUID) : TTypeInformation;
   end;
 
-  function TypeToString(ttype:tagTYPEDESC):WideString;
+  function TypeToString(ttype:TTypeDesc; tinfo:ITypeInfo):WideString;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -228,12 +230,15 @@ begin
         INVOKE_PROPERTYPUTREF : LThisFunc.FInvokeKind := ikPropertySetterRef;
       end;
 
+      
       // get the return type
       LThisFunc.FReturnType.FType := LFuncDesc.elemdescFunc.tdesc.vt;
-      LThisFunc.FReturnType.FFullType := TypeToString(LFuncDesc.elemdescFunc.tdesc);
+      LThisFunc.FReturnType.FFullType := TypeToString(LFuncDesc.elemdescFunc.tdesc,FTypeInfo);
 
       OleCheck(FTypeInfo.GetNames(LThisFunc.FMemberID, @LNameList,
         Length(LNameList), LParamCount));
+
+      LThisFunc.FOptionalParamCount := LFuncDesc.cParamsOpt;
 
       // parameters
       for LParamLoop := 0 to LFuncDesc.cParams-1 do
@@ -241,7 +246,7 @@ begin
         LThisParam := TParameter.Create;
         LThisParam.FName := LNameList[LParamLoop + 1];
         LThisParam.FType := LFuncDesc.lprgelemdescParam[LParamLoop].tdesc.vt;
-        LThisParam.FFullType := TypeToString(LFuncDesc.lprgelemdescParam[LParamLoop].tdesc);
+        LThisParam.FFullType := TypeToString(LFuncDesc.lprgelemdescParam[LParamLoop].tdesc,FTypeInfo);
         LThisFunc.FParameters.Add(LThisParam);
       end;
 
@@ -318,7 +323,7 @@ begin
   Result:=TVariable.Create;
   OleCheck(FTypeInfo.GetVarDesc(Index, LVarDesc));
   Result.FType := LVarDesc.elemdescVar.tdesc.vt;
-  Result.FFullType := TypeToString(LVarDesc.elemdescVar.tdesc);
+  Result.FFullType := TypeToString(LVarDesc.elemdescVar.tdesc,FTypeInfo);
 
   OleCheck(FTypeInfo.GetDocumentation(LVarDesc.memid, @Result.FName, nil, nil, nil));
   FTypeInfo.ReleaseVarDesc(LVarDesc);
@@ -535,10 +540,13 @@ end;
 
 
 
-function TypeToString(ttype:TTypeDesc):WideString;
+function TypeToString(ttype:TTypeDesc; tinfo:ITypeInfo):WideString;
 var t:integer;
   stype : string;
   pt:TVarType;
+  subtinfo:ITypeInfo;
+  LTypeLib:ITypeLib;
+  LIndex:integer;
 begin
 
   stype := '';
@@ -577,11 +585,18 @@ begin
     vt_hresult : Result := 'HResult';
     vt_ptr :
     begin
-      Result := 'Pointer|'+TypeToString(ttype.ptdesc^);
+      Result := 'Pointer|'+TypeToString(ttype.ptdesc^,tinfo);
     end;
     vt_safearray : Result := 'SafeArray';
     vt_carray : Result := 'CArray';
-    vt_userdefined : Result := 'UserDefined';
+    vt_userdefined :
+    begin
+      OleCheck(tinfo.GetRefTypeInfo(ttype.hreftype,subtinfo));
+      OleCheck(subtinfo.GetContainingTypeLib(LTypeLib, LIndex));
+      OleCheck(LTypeLib.GetDocumentation(LIndex, @Result, nil, nil, nil));
+
+      //Result := 'UserDefined';
+    end;
     vt_lpstr : Result := 'LPStr';
     vt_lpwstr : Result := 'LPWStr';
     vt_int_ptr : Result := 'IntPtr';

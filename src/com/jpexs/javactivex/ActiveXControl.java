@@ -9,10 +9,15 @@ import com.sun.jna.Native;
 import com.sun.jna.Platform;
 import com.sun.jna.WString;
 import com.sun.jna.ptr.IntByReference;
+import java.awt.AWTEvent;
 import java.awt.Color;
+import java.awt.Event;
 import java.awt.Panel;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
+import java.awt.event.KeyEvent;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionListener;
 import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
@@ -26,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.WeakHashMap;
 
 /**
  * ActiveX control Component
@@ -60,13 +66,17 @@ public class ActiveXControl extends Panel {
     private String docString;
     private long cid = -1;
     private String progId;
-    private boolean shown = false;
+    private boolean attached = false;
     private String className;
 
     private static final int ECHO_INTERVAL = 100;
 
     private final static Map<Class<?>, Class<?>> boxedMap = new HashMap<>();
     private static Timer syncTimer = new Timer();
+
+    private Panel panel;
+
+    private static Map<Long, ActiveXControl> instances = new WeakHashMap<Long, ActiveXControl>();
 
     static {
 
@@ -139,12 +149,86 @@ public class ActiveXControl extends Panel {
         });
     }
 
+    private static Map<Long, Map<String, List<ActiveXEventListener>>> listeners = new HashMap<>();
+
+    private static void addControlEventListener(String eventName, ActiveXControl control, ActiveXEventListener listener) {
+        if (!listeners.containsKey(control.cid)) {
+            listeners.put(control.cid, new HashMap<String, List<ActiveXEventListener>>());
+        }
+
+        if (eventName == null) {
+            eventName = "*";
+        }
+        if (!listeners.get(control.cid).containsKey(eventName)) {
+            listeners.get(control.cid).put(eventName, new ArrayList<ActiveXEventListener>());
+        }
+        listeners.get(control.cid).get(eventName).add(listener);
+    }
+
+    private static void removeControlEventListener(String eventName, ActiveXControl control, ActiveXEventListener listener) {
+        if (!listeners.containsKey(control.cid)) {
+            return;
+        }
+        if (eventName == null) {
+            eventName = "*";
+        }
+        if (!listeners.get(control.cid).containsKey(eventName)) {
+            return;
+        }
+        listeners.get(control.cid).get(eventName).remove(listener);
+    }
+
+    public void addEventListener(ActiveXEventListener listener) {
+        addEventListener(null, listener);
+    }
+
+    public void addEventListener(String eventName, ActiveXEventListener listener) {
+        addControlEventListener(eventName, this, listener);
+    }
+
+    public void removeEventListener(ActiveXEventListener listener) {
+        removeControlEventListener(null, this, listener);
+    }
+
+    public void removeEventListener(String eventName, ActiveXEventListener listener) {
+        removeControlEventListener(eventName, this, listener);
+    }
+
     private static void echo() {
+        List<ActiveXEvent> events = new ArrayList<>();
         synchronized (AXLOCK) {
             writeCommand(CMD_ECHO);
-            String ok = readString();
-            if (!ok.equals("OK")) {
-                throw new ActiveXException("Sync failed - result:" + ok);
+            int cnt = readUI16();
+            for (int i = 0; i < cnt; i++) {
+                long ecid = readUI32();
+                String ename = readString();
+                int epcount = readUI16();
+                Map<String, Object> args = new HashMap<>();
+                Map<String, String> argTypes = new HashMap<>();
+                for (int j = 0; j < epcount; j++) {
+                    String type = readString();
+                    Object val = strToValue(type, readString());
+                    String key = readString();
+                    args.put(key, val);
+                    argTypes.put(key, type);
+                    readString(); // paramType
+                }
+                if (instances.containsKey(ecid)) {
+                    events.add(new ActiveXEvent(instances.get(ecid), ename, args, argTypes));
+                }
+            }
+        }
+
+        for (ActiveXEvent ev : events) {
+            if (listeners.containsKey(ev.source.cid)) {
+                for (String evName : listeners.get(ev.source.cid).keySet()) {
+                    if (evName.equals("*") || evName.equals(ev.name)) {
+                        List<ActiveXEventListener> list = listeners.get(ev.source.cid).get(evName);
+                        for (ActiveXEventListener l : list) {
+                            l.onEvent(ev);
+                        }
+                    }
+                }
             }
         }
     }
@@ -223,7 +307,7 @@ public class ActiveXControl extends Panel {
             case "BlobObject":
             case "CF":
             case "CLSID":
-                return null; //Unsupported           
+                return null; //Unsupported
 
             default:
                 return null;
@@ -237,14 +321,29 @@ public class ActiveXControl extends Panel {
             case "Null":
                 return null;
             case "Smallint":
+                if (value.trim().equals("")) {
+                    return null;
+                }
                 return Integer.parseInt(value);
             case "Integer":
+                if (value.trim().equals("")) {
+                    return null;
+                }
                 return Integer.parseInt(value);
             case "Single":
+                if (value.trim().equals("")) {
+                    return null;
+                }
                 return Float.parseFloat(value);
             case "Double":
+                if (value.trim().equals("")) {
+                    return null;
+                }
                 return Double.parseDouble(value);
             case "Currency":
+                if (value.trim().equals("")) {
+                    return null;
+                }
                 return new BigDecimal(value);
             case "Date":
                 return null; //TODO
@@ -265,14 +364,29 @@ public class ActiveXControl extends Panel {
             case "$0F":
                 return null;
             case "ShortInt":
+                if (value.trim().equals("")) {
+                    return null;
+                }
                 return Short.parseShort(value);
             case "Byte":
+                if (value.trim().equals("")) {
+                    return null;
+                }
                 return Integer.parseInt(value);
             case "Word":
+                if (value.trim().equals("")) {
+                    return null;
+                }
                 return Integer.parseInt(value);
             case "LongWord":
+                if (value.trim().equals("")) {
+                    return null;
+                }
                 return Long.parseLong(value);
             case "Int64":
+                if (value.trim().equals("")) {
+                    return null;
+                }
                 return new BigInteger(value);
             default:
                 return null;
@@ -295,7 +409,7 @@ public class ActiveXControl extends Panel {
             boolean readable = readString().equals("True");
             readString();
             boolean writable = readString().equals("True");
-            return new ActiveXProperty(name, strToClass(type),type, readable, writable);
+            return new ActiveXProperty(name, strToClass(type), type, readable, writable);
         }
     }
 
@@ -330,8 +444,9 @@ public class ActiveXControl extends Panel {
             final String fname = readString();
             final String returnName = readString();
             final String returnTypeStr = readString();
-            final Class returnType = strToClass(returnTypeStr);            
+            final Class returnType = strToClass(returnTypeStr);
             int parameterCount = readUI16();
+            final int optionalParameterCount = readUI16();
             for (int i = 0; i < parameterCount; i++) {
                 String pname = readString();
                 String ptype = readString();
@@ -343,6 +458,13 @@ public class ActiveXControl extends Panel {
 
             return new ActiveXMethodInfo() {
 
+                @Override
+                public int getOptionalArgumentCount() {
+                    return optionalParameterCount;
+                }
+
+                
+                
                 private String typeToStr(Class c) {
                     if (c == null) {
                         return "Object";
@@ -383,8 +505,6 @@ public class ActiveXControl extends Panel {
                     return returnTypeStr;
                 }
 
-                
-                
                 @Override
                 public Object getOwner() {
                     return ActiveXControl.this;
@@ -404,8 +524,6 @@ public class ActiveXControl extends Panel {
                 public List<String> getArgumentTypesStr() {
                     return argTypesStr;
                 }
-                
-                
 
                 @Override
                 public Object call(Object... args) {
@@ -518,8 +636,8 @@ public class ActiveXControl extends Panel {
      *
      * @param guid ClassId - GUID
      */
-    public ActiveXControl(String guid) {
-        this("", guid);
+    public ActiveXControl(String guid, Panel panel) {
+        this("", guid, panel);
     }
 
     /**
@@ -528,8 +646,8 @@ public class ActiveXControl extends Panel {
      * @param filename File to create class from
      * @param guid ClassId - GUID
      */
-    public ActiveXControl(File filename, String guid) {
-        this(filename.getAbsolutePath(), guid);
+    public ActiveXControl(File filename, String guid, Panel panel) {
+        this(filename.getAbsolutePath(), guid, panel);
     }
 
     /**
@@ -556,8 +674,9 @@ public class ActiveXControl extends Panel {
      * @param filename File path to create class from
      * @param guid ClassId - GUID
      */
-    public ActiveXControl(String filename, String guid) {
+    public ActiveXControl(String filename, String guid, Panel panel) {
         this.guid = guid;
+        this.panel = panel;
         synchronized (AXLOCK) {
             writeCommand(CMD_NEW);
             writeString(filename);
@@ -569,40 +688,142 @@ public class ActiveXControl extends Panel {
             className = readString();
             docString = readString();
         }
-        setBackground(Color.green);
-        addComponentListener(new ComponentListener() {
-            @Override
-            public void componentResized(ComponentEvent e) {
-                resize();
-            }
+        instances.put(cid, this);
+        if (panel != null) {
+            panel.addComponentListener(new ComponentListener() {
+                @Override
+                public void componentResized(ComponentEvent e) {
+                    resize();
+                }
 
-            @Override
-            public void componentMoved(ComponentEvent e) {
-            }
+                @Override
+                public void componentMoved(ComponentEvent e) {
+                }
 
-            @Override
-            public void componentShown(ComponentEvent e) {
-                componentResized(e);
-            }
+                @Override
+                public void componentShown(ComponentEvent e) {
+                    componentResized(e);
+                }
 
-            @Override
-            public void componentHidden(ComponentEvent e) {
-            }
-        });
+                @Override
+                public void componentHidden(ComponentEvent e) {
+                }
+            });
+        };
+    }
 
+    
+    private static int shiftStateToModifiers(int shiftState){
+         boolean shiftDown = (shiftState & 1) == 1;
+                    boolean ctrlDown = (shiftState & 2) == 2;
+                    boolean altDown = (shiftState & 4) == 4;
+                    int modifiers = (shiftDown ? Event.SHIFT_MASK : 0) + (ctrlDown ? Event.CTRL_MASK : 0) + (altDown ? Event.ALT_MASK : 0);
+                    return modifiers;
+    }
+    
+    private void attach() {
+        synchronized (AXLOCK) {
+            writeComponentCommand(CMD_SET_PARENT);
+            hwnd = Native.getComponentPointer(panel).hashCode();
+            writeUI32(hwnd);
+
+            //Pass mouse move event
+            ActiveXEventListener mouseHandler = new ActiveXEventListener() {
+                @Override
+                public void onEvent(ActiveXEvent ev) {
+                    int fX = (Integer) ev.args.get("fX");
+                    int fY = (Integer) ev.args.get("fX");
+                    int button = (Integer) ev.args.get("nButton");
+                    int shiftState = (Integer) ev.args.get("nShiftState");
+                   
+                    boolean buttonLeft = (button & 1) == 1;
+                    boolean buttonRight = (button & 2) == 2;
+                    boolean buttonMiddle = (button & 4) == 4;
+
+                    int oneButton = buttonLeft ? 1 : (buttonRight ? 2 : (buttonMiddle ? 3 : 0));
+
+                    int clickCount = 0;
+                    int eventType = 0;
+                    switch (ev.name) {
+                        case "MouseMove":
+                            eventType = MouseEvent.MOUSE_MOVED;
+                            break;
+                        case "MouseUp":
+                            eventType = MouseEvent.MOUSE_RELEASED;
+                            break;
+                        case "MouseDown":
+                            eventType = MouseEvent.MOUSE_PRESSED;
+                            break;
+                        case "Click":
+                            eventType = MouseEvent.MOUSE_CLICKED;
+                            clickCount = 1;
+                            break;
+                        case "DoubleClick":
+                            eventType = MouseEvent.MOUSE_CLICKED;
+                            clickCount = 2;
+                            break;
+                    }
+
+                    
+                    panel.dispatchEvent(new MouseEvent(panel, eventType, System.currentTimeMillis(), shiftStateToModifiers(shiftState), fX, fY, clickCount, false, oneButton));
+                }
+            };
+
+            addEventListener("MouseMove", mouseHandler);
+            addEventListener("MouseUp", mouseHandler);
+            addEventListener("MouseDown", mouseHandler);
+            addEventListener("Click", mouseHandler);
+            addEventListener("DoubleClick", mouseHandler);
+            
+            ActiveXEventListener keyHandler = new ActiveXEventListener() {
+
+                @Override
+                public void onEvent(ActiveXEvent ev) {
+                    int nKeyCode = 0;
+                    int nShiftState = 0;               
+                    int eventType = 0;
+                    int nKeyAscii = 0;
+                    
+                    switch(ev.name){
+                        case "KeyDown":
+                        case "KeyUp":                            
+                            nKeyCode = (Integer)ev.args.get("nKeyCode");
+                            nShiftState = (Integer)ev.args.get("nShiftState");    
+                            break;
+                        case "KeyPress":
+                            nKeyAscii = (Integer)ev.args.get("nKeyAscii");
+                            break;
+                    }
+                    switch(ev.name){
+                        case "KeyDown":
+                            eventType = KeyEvent.KEY_PRESSED;
+                            break;
+                        case "KeyUp":
+                            eventType = KeyEvent.KEY_RELEASED;
+                            break;
+                        case "KeyPress":
+                            eventType = KeyEvent.KEY_TYPED;
+                            break;
+                    }
+                    panel.dispatchEvent(new KeyEvent(panel, eventType, System.currentTimeMillis(), shiftStateToModifiers(nShiftState), nKeyCode, (char)nKeyAscii));
+                }
+            };
+            addEventListener("KeyUp", keyHandler);
+            addEventListener("KeyDown", keyHandler);
+            addEventListener("KeyPress", keyHandler);
+
+            attached = true;
+        }
     }
 
     private void resize() {
+        if (!attached) {
+            attach();
+        }
         synchronized (AXLOCK) {
-            if (!shown) {
-                writeComponentCommand(CMD_SET_PARENT);
-                hwnd = Native.getComponentPointer(ActiveXControl.this).hashCode();
-                writeUI32(hwnd);
-                shown = true;
-            }
             writeComponentCommand(CMD_RESIZE);
-            writeUI16(getWidth());
-            writeUI16(getHeight());
+            writeUI16(panel.getWidth());
+            writeUI16(panel.getHeight());
         }
     }
 
@@ -786,8 +1007,8 @@ public class ActiveXControl extends Panel {
      * @param classId Class Id - GUID
      * @return
      */
-    public static String generateJavaDefinition(String classId) {
-        return generateJavaDefinition("", classId);
+    public static String generateJavaDefinition(String classId, boolean isGraphicControl) {
+        return generateJavaDefinition("", classId, isGraphicControl);
     }
 
     /**
@@ -797,8 +1018,8 @@ public class ActiveXControl extends Panel {
      * @param classId Class Id - GUID
      * @return
      */
-    public static String generateJavaDefinition(String ocx, String classId) {
-        return new ActiveXControl(ocx, classId).getJavaDefinition();
+    public static String generateJavaDefinition(String ocx, String classId, boolean isGraphicControl) {
+        return new ActiveXControl(ocx, classId, null).getJavaDefinition(isGraphicControl);
     }
 
     /**
@@ -808,8 +1029,8 @@ public class ActiveXControl extends Panel {
      * @param classId Class Id - GUID
      * @return
      */
-    public static String generateJavaDefinition(File ocx, String classId) {
-        return generateJavaDefinition(ocx.getAbsolutePath(), classId);
+    public static String generateJavaDefinition(File ocx, String classId, boolean isGraphicControl) {
+        return generateJavaDefinition(ocx.getAbsolutePath(), classId, isGraphicControl);
     }
 
     /**
@@ -853,24 +1074,32 @@ public class ActiveXControl extends Panel {
         return s.substring(0, 1).toUpperCase() + s.substring(1);
     }
 
+    
+    private static String typeToStr(Class c){
+        if (c == null) {
+                        return "Object";
+                    }
+                    return c.getSimpleName();
+    }
     /**
      * Generates Java Definition from this class
      *
      * @return
      */
-    public String getJavaDefinition() {
+    public String getJavaDefinition(boolean isGraphicControl) {
         StringBuilder sb = new StringBuilder();
         String nl = System.lineSeparator();
         String controlName = getClassName();
 
         if (controlName == null) {
             controlName = "MyClass";
-        }        
+        }
         sb.append("import com.jpexs.javactivex.ActiveXControl;").append(nl);
         sb.append("import java.io.File;").append(nl);
+        sb.append("import java.awt.Panel;").append(nl);
         sb.append(nl);
         sb.append("/**").append(nl);
-        if(docString.isEmpty()){
+        if (docString.isEmpty()) {
             sb.append(" * Class ").append(controlName).append(nl);
         }
         sb.append(" * ").append(docString).append(nl);
@@ -880,84 +1109,132 @@ public class ActiveXControl extends Panel {
         sb.append(nl);
         sb.append("\t/**").append(nl);
         sb.append("\t * Constructs class which is already registered").append(nl);
+        if (isGraphicControl) {
+            sb.append("\t * @param panel Target panel to view component in").append(nl);
+        }
         sb.append("\t */").append(nl);
-        sb.append("\tpublic ").append(controlName).append("() {").append(nl);
-        sb.append("\t\tthis(\"\");").append(nl);
+        sb.append("\tpublic ").append(controlName).append("(");
+        if (isGraphicControl) {
+            sb.append("Panel panel");
+        }
+        sb.append(") {").append(nl);
+        sb.append("\t\tthis(");
+        if (isGraphicControl) {
+            sb.append("panel, ");
+        }
+        sb.append("\"\");").append(nl);
         sb.append("\t}").append(nl);
 
         sb.append(nl);
         sb.append("\t/**").append(nl);
         sb.append("\t * Constructs ").append(controlName).append(" from OCX path").append(nl);
+        if (isGraphicControl) {
+            sb.append("\t * @param panel Target panel to view component in").append(nl);
+        }
         sb.append("\t * @param ocxPath Path to OCX file which contains ").append(controlName).append(" class").append(nl);
         sb.append("\t */").append(nl);
-        sb.append("\tpublic ").append(controlName).append("(String ocxPath) {").append(nl);
-        sb.append("\t\tsuper(ocxPath,\"").append(guid).append("\");").append(nl);
+        sb.append("\tpublic ").append(controlName).append("(");
+        if (isGraphicControl) {
+            sb.append("Panel panel,");
+        }
+        sb.append("String ocxPath) {").append(nl);
+        sb.append("\t\tsuper(ocxPath,\"").append(guid).append("\"");
+        if (isGraphicControl) {
+            sb.append(", panel");
+        }
+        sb.append(");").append(nl);
         sb.append("\t}").append(nl);
 
         sb.append(nl);
         sb.append("\t/**").append(nl);
         sb.append("\t * Constructs ").append(controlName).append(" from OCX file").append(nl);
+        if (isGraphicControl) {
+            sb.append("\t * @param panel Target panel to view component in").append(nl);
+        }
         sb.append("\t * @param ocx OCX file which contains ").append(controlName).append(" class").append(nl);
         sb.append("\t */").append(nl);
-        sb.append("\tpublic ").append(controlName).append("(File ocx) {").append(nl);
-        sb.append("\t\tthis(ocx.getAbsolutePath());").append(nl);
+        sb.append("\tpublic ").append(controlName).append("(");
+        if (isGraphicControl) {
+            sb.append("Panel panel, ");
+        }
+
+        sb.append("File ocx) {").append(nl);
+        sb.append("\t\tthis(");
+        if (isGraphicControl) {
+            sb.append("panel, ");
+        }
+        sb.append("ocx.getAbsolutePath());").append(nl);
         sb.append("\t}").append(nl);
 
-        Set<String> methodNames = getMethodNames();                   
-        
-        for (String metName : methodNames) {
-            sb.append(nl);
+        Set<String> methodNames = getMethodNames();
+
+        for (String metName : methodNames) {            
             ActiveXMethodInfo m = getMethod(metName);
             String doc = m.getDoc();
 
-            sb.append("\t/**").append(nl);
-            if (!doc.isEmpty()) {
-                sb.append("\t * ").append(doc.trim().replaceAll("\r\n|\r|\n", "\t * ")).append(nl);
-            } else {
-                sb.append("\t * Method ").append(metName).append(nl);
-            }
-            sb.append("\t * ").append(nl);
-            
-            List<String> argnames = m.getArgumentNames();
-            List<Class> argtypes = m.getArgumentTypes();
-            List<String> argtypesstr = m.getArgumentTypesStr();
-            for (int i=0;i<argnames.size();i++) {                
-                sb.append("\t * @param ").append(argnames.get(i));
-                if(argtypes.get(i)==null){
-                    sb.append(" (").append(argtypesstr.get(i)).append(") ");
-                }
+            int optcnt = m.getOptionalArgumentCount();
+            for(int k=0;k<=optcnt;k++){
                 sb.append(nl);
-            }
-            Class retType = m.getReturnType();
-
-            if (retType != void.class) {
-                sb.append("\t * @return");
-                if(retType == null){
-                    sb.append(" (").append(m.getReturnTypeStr()).append(")");
+                sb.append("\t/**").append(nl);
+                if (!doc.isEmpty()) {
+                    sb.append("\t * ").append(doc.trim().replaceAll("\r\n|\r|\n", "\t * ")).append(nl);
+                } else {
+                    sb.append("\t * Method ").append(metName).append(nl);
                 }
-                sb.append(nl);
-            }
-            sb.append("\t */").append(nl);
-            sb.append("\tpublic ").append(m.toString()).append(" {").append(nl);
-            sb.append("\t\t");
+                sb.append("\t * ").append(nl);
 
-            if (retType != void.class) {
-                sb.append("return ");
-                if (retType != null) {
-                    if (boxedMap.containsKey(retType)) {
-                        sb.append("(").append(boxedMap.get(retType).getSimpleName()).append(")");
-                    } else {
-                        sb.append("(").append(retType.getSimpleName()).append(")");
+                List<String> argnames = m.getArgumentNames();
+                List<Class> argtypes = m.getArgumentTypes();
+                List<String> argtypesstr = m.getArgumentTypesStr();
+                for (int i = 0; i < argnames.size()-k; i++) {
+                    sb.append("\t * @param ").append(argnames.get(i));
+                    if (argtypes.get(i) == null) {
+                        sb.append(" (").append(argtypesstr.get(i)).append(") ");
+                    }
+                    sb.append(nl);
+                }
+                Class retType = m.getReturnType();
+
+                if (retType != void.class) {
+                    sb.append("\t * @return");
+                    if (retType == null) {
+                        sb.append(" (").append(m.getReturnTypeStr()).append(")");
+                    }
+                    sb.append(nl);
+                }
+                sb.append("\t */").append(nl);
+                sb.append("\tpublic ");
+                
+                sb.append(typeToStr(m.getReturnType())).append(" ").append(m.getName()).append("(");
+                for (int i = 0; i < argnames.size()-k; i++) {
+                    if (i > 0) {
+                        sb.append(", ");
+                    }
+                    sb.append(typeToStr(argtypes.get(i))).append(" ").append(argnames.get(i));
+                }
+                sb.append(")");
+                
+                sb.append(" {").append(nl);
+                sb.append("\t\t");
+
+                if (retType != void.class) {
+                    sb.append("return ");
+                    if (retType != null) {
+                        if (boxedMap.containsKey(retType)) {
+                            sb.append("(").append(boxedMap.get(retType).getSimpleName()).append(")");
+                        } else {
+                            sb.append("(").append(retType.getSimpleName()).append(")");
+                        }
                     }
                 }
+                sb.append("callMethod(\"").append(metName).append("\"");
+                for (int i=0;i<argnames.size()-k;i++) {
+                    sb.append(", ");
+                    sb.append(argnames.get(i));
+                }
+                sb.append(");").append(nl);
+                sb.append("\t}").append(nl);
             }
-            sb.append("callMethod(\"").append(metName).append("\"");
-            for (String pname : m.getArgumentNames()) {
-                sb.append(", ");
-                sb.append(pname);
-            }
-            sb.append(");").append(nl);
-            sb.append("\t}").append(nl);
 
         }
 
@@ -970,7 +1247,7 @@ public class ActiveXControl extends Panel {
             if (type == null) {
                 type = Object.class;
                 customType = true;
-            }                      
+            }
             Class coerceType = type;
             if (boxedMap.containsKey(coerceType)) {
                 coerceType = boxedMap.get(coerceType);
@@ -981,7 +1258,7 @@ public class ActiveXControl extends Panel {
                 sb.append("\t * Getter for property ").append(propName).append(nl);
                 sb.append("\t * ").append(nl);
                 sb.append("\t * @return ");
-                if(customType){
+                if (customType) {
                     sb.append("(").append(p.typeStr).append(") ");
                 }
                 sb.append(propName).append(" value").append(nl);
@@ -990,14 +1267,14 @@ public class ActiveXControl extends Panel {
                 sb.append("\t\treturn (").append(coerceType.getSimpleName()).append(")getPropertyValue(\"").append(propName).append("\");").append(nl);
                 sb.append("\t}").append(nl);
             }
-            
+
             if (p.writable) {
                 sb.append(nl);
                 sb.append("\t/**").append(nl);
                 sb.append("\t * Setter for property ").append(propName).append(nl);
                 sb.append("\t * ").append(nl);
                 sb.append("\t * @param value ");
-                if(customType){
+                if (customType) {
                     sb.append("(").append(p.typeStr).append(") ");
                 }
                 sb.append("New ").append(propName).append(" value").append(nl);

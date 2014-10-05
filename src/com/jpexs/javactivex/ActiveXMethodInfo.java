@@ -79,4 +79,10 @@ public interface ActiveXMethodInfo {
      * @return
      */
     public String getDoc();
+    
+    /**
+     * Get count of optional arguments
+     * @return 
+     */
+    public int getOptionalArgumentCount();
 }

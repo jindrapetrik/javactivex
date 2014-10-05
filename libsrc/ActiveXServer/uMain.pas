@@ -28,6 +28,19 @@ type
     active:Boolean;
     progId:widestring;
     classId:widestring;
+    width:integer;
+    height:integer;
+  end;
+
+  TAEvent = class
+     public
+     var
+     cid:Integer;
+     EventName : string;
+     EventParams : array of Variant;
+     EventParamTypes : array of Variant;
+     EventParamTypesStr : array of Variant;
+     EventParamNames : array of Variant;
   end;
 
   TPipeThread = class(TThread)
@@ -69,10 +82,21 @@ type
     procedure SetParentWnd();
     procedure GetMethods;
     procedure GetEvents;
-    procedure GetProperties;  
+    procedure GetProperties;
     procedure CallMethod;
     procedure CancelWatchDog;
     procedure InitWatchDog;
+    procedure WriteEvents;
+    procedure CheckSizes;
+    procedure ActiveXEvent(Sender : TObject; EventName : string;
+    EventParams : array of Variant;
+    EventParamTypes : array of Variant;
+    EventParamTypesStr : array of Variant;
+    EventParamNames : array of Variant);
+
+  public
+   var events:TStrings;
+
   end;
   TBuf = array[0..255] of byte;
 
@@ -81,6 +105,8 @@ type
 var
   frmMain: TfrmMain;
   t: TPipeThread;
+
+
 implementation
 
 {$R *.dfm}
@@ -310,6 +336,11 @@ begin
     hosts[val].host.Top := 0;
     hosts[val].host.Width := 500;
     hosts[val].host.Height := 500;
+    hosts[val].host.Tag := val;
+    hosts[val].width:=500;
+    hosts[val].height:=500;
+
+    hosts[val].host.OnEvent := ActiveXEvent;
     hosts[val].active := True;
     WriteUI32(val);
 
@@ -349,6 +380,8 @@ end;
 
 procedure TPipeThread.ResizeControl;
 begin
+  hosts[cid].width := nwidth;
+  hosts[cid].height := nheight;
   hosts[cid].panel.Top:=0;
   hosts[cid].panel.Left:=0;
   hosts[cid].panel.Width:=nwidth;
@@ -422,6 +455,7 @@ begin
   WriteString(f.Name);
   WriteParameter(f.ReturnType);
   WriteUI16(f.ParameterCount);
+  WriteUI16(f.OptionalParamCount);
   for i:=0 to f.ParameterCount-1 do
    begin
      writeParameter(f.Parameter(i));
@@ -475,6 +509,59 @@ begin
   begin
     cid:=-1;
   end;
+end;
+
+
+procedure TPipeThread.CheckSizes;
+var i:integer;
+begin
+  for i := 0 to length(hosts) - 1 do
+   begin
+     if hosts[i].active then
+     begin
+       if hosts[i].host.Width<>hosts[i].width then hosts[i].host.Width:=hosts[i].width;
+       if hosts[i].host.Height<>hosts[i].height then hosts[i].host.Height:=hosts[i].height;
+     end;
+   end;
+
+end;
+
+procedure TPipeThread.WriteEvents;
+var cnt:integer;
+  i: Integer;
+  j:integer;
+  ev:TAEvent;
+  propTypeStr:WideString;
+  propVal:Variant;
+  begin
+  cnt:=events.Count;
+  if cnt>65535 then
+   cnt := 65535;
+  WriteUI16(cnt);
+  for i := 0 to cnt - 1 do
+   begin
+     ev:=(events.Objects[0] as TAEvent);
+     WriteUI32(ev.cid);
+     WriteString(ev.EventName);
+     WriteUI16(Length(ev.EventParams));
+     for j := 0 to Length(ev.EventParams) - 1 do
+       begin
+         propVal:=ev.EventParams[j];
+         propTypeStr := VarTypeAsText(VarType(propVal));
+         if VarType(propVal) = varDispatch then
+           propValStr := '-'
+         else if VarType(propVal) = varUnknown then
+           propValStr := '-'
+         else
+        	  propValStr := VarToWideStr(propVal);
+         WriteString(propTypeStr);
+         WriteString(propValStr);
+         WriteString(ev.EventParamNames[j]);
+         WriteString(ev.EventParamTypesStr[j]);
+       end;
+     events.Delete(0);
+   end;
+
 end;
 
 
@@ -538,7 +625,7 @@ const
   CMD_GET_PROPERTY_TYPE = 15;
 
 begin
-
+  events := TStringList.Create;
   try
     pipename := PAnsiChar('\\.\\pipe\activex_server_' + ParamStr(1));
     begin
@@ -633,7 +720,8 @@ begin
             end;
             CMD_ECHO:
             begin
-              WriteString('OK');
+              Synchronize(WriteEvents);
+              Synchronize(CheckSizes);
             end;
             CMD_NEW:
             begin
@@ -770,9 +858,41 @@ begin
 end;
 
 
+
 procedure TfrmMain.FormDestroy(Sender: TObject);
 begin
   t.Free;
+end;
+
+procedure TPipeThread.ActiveXEvent(Sender : TObject; EventName : string;
+    EventParams : array of Variant;
+    EventParamTypes : array of Variant;
+    EventParamTypesStr : array of Variant;
+    EventParamNames : array of Variant);
+var ev:TAEvent;
+i:integer;
+begin
+  if Assigned(t) then
+   begin                               
+     ev:=TAEvent.Create;
+     ev.cid := (Sender as TComponent).Tag;
+     ev.EventName := EventName;
+     setlength(ev.EventParams,length(eventparams));
+     setlength(ev.EventParamTypes,length(EventParamTypes));
+     setlength(ev.EventParamTypesStr,length(EventParamTypesStr));
+     setlength(ev.EventParamNames,length(EventParamNames));
+     for i := 0 to length(eventparams) - 1 do
+         ev.EventParams[i] := EventParams[i];
+     for i := 0 to length(EventParamTypes) - 1 do
+         ev.EventParamTypes[i] := EventParamTypes[i];
+     for i := 0 to length(EventParamTypesStr) - 1 do
+         ev.EventParamTypesStr[i] := EventParamTypesStr[i];
+     for i := 0 to length(EventParamNames) - 1 do
+         ev.EventParamNames[i] := EventParamNames[i];
+
+//     if t.events.Count<50 then
+       t.events.AddObject('',ev);
+   end;
 end;
 
 end.

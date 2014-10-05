@@ -1,5 +1,6 @@
 package com.jpexs.javactivex;
 
+import java.awt.Panel;
 import java.io.File;
 
 /**
@@ -43,8 +44,8 @@ public class ActiveXClassInfo {
      *
      * @return
      */
-    public ActiveXControl createControl() {
-        return new ActiveXControl(file, guid);
+    public ActiveXControl createControl(Panel panel) {
+        return new ActiveXControl(file, guid, panel);
     }
 
     /**
@@ -52,8 +53,8 @@ public class ActiveXClassInfo {
      *
      * @return
      */
-    public String getJavaDefinition() {
-        return ActiveXControl.generateJavaDefinition(guid);
+    public String getJavaDefinition(boolean isGraphicControl) {
+        return ActiveXControl.generateJavaDefinition(guid,isGraphicControl);
     }
 
     /**

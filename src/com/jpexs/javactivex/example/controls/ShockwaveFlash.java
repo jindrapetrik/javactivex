@@ -1,7 +1,9 @@
 package com.jpexs.javactivex.example.controls;
 
+
 import com.jpexs.javactivex.ActiveXControl;
 import java.io.File;
+import java.awt.Panel;
 
 /**
  * Shockwave Flash
@@ -10,25 +12,28 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Constructs class which is already registered
+	 * @param panel Target panel to view component in
 	 */
-	public ShockwaveFlash() {
-		this("");
+	public ShockwaveFlash(Panel panel) {
+		this(panel, "");
 	}
 
 	/**
 	 * Constructs ShockwaveFlash from OCX path
+	 * @param panel Target panel to view component in
 	 * @param ocxPath Path to OCX file which contains ShockwaveFlash class
 	 */
-	public ShockwaveFlash(String ocxPath) {
-		super(ocxPath,"{d27cdb6e-ae6d-11cf-96b8-444553540000}");
+	public ShockwaveFlash(Panel panel,String ocxPath) {
+		super(ocxPath,"{d27cdb6e-ae6d-11cf-96b8-444553540000}", panel);
 	}
 
 	/**
 	 * Constructs ShockwaveFlash from OCX file
+	 * @param panel Target panel to view component in
 	 * @param ocx OCX file which contains ShockwaveFlash class
 	 */
-	public ShockwaveFlash(File ocx) {
-		this(ocx.getAbsolutePath());
+	public ShockwaveFlash(Panel panel, File ocx) {
+		this(panel, ocx.getAbsolutePath());
 	}
 
 	/**
@@ -118,12 +123,12 @@ public class ShockwaveFlash extends ActiveXControl {
 	 * Method Invoke
 	 * 
 	 * @param dispidMember
-	 * @param riid (Pointer|UserDefined) 
+	 * @param riid (Pointer|GUID) 
 	 * @param lcid
 	 * @param wFlags
-	 * @param pdispparams (Pointer|UserDefined) 
+	 * @param pdispparams (Pointer|DISPPARAMS) 
 	 * @param pvarResult (Pointer|Variant) 
-	 * @param pexcepinfo (Pointer|UserDefined) 
+	 * @param pexcepinfo (Pointer|EXCEPINFO) 
 	 * @param puArgErr (Pointer|UInt) 
 	 */
 	public void Invoke(int dispidMember, Object riid, long lcid, int wFlags, Object pdispparams, Object pvarResult, Object pexcepinfo, Object puArgErr) {
@@ -297,7 +302,7 @@ public class ShockwaveFlash extends ActiveXControl {
 	/**
 	 * Method GetIDsOfNames
 	 * 
-	 * @param riid (Pointer|UserDefined) 
+	 * @param riid (Pointer|GUID) 
 	 * @param rgszNames (Pointer|Pointer|ShortInt) 
 	 * @param cNames
 	 * @param lcid
@@ -331,7 +336,7 @@ public class ShockwaveFlash extends ActiveXControl {
 	/**
 	 * Method QueryInterface
 	 * 
-	 * @param riid (Pointer|UserDefined) 
+	 * @param riid (Pointer|GUID) 
 	 * @param ppvObj (Pointer|Pointer|Void) 
 	 */
 	public void QueryInterface(Object riid, Object ppvObj) {

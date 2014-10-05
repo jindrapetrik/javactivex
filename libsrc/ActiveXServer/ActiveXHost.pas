@@ -16,7 +16,10 @@ uses
 
 type
   TEventEvent = procedure(Sender : TObject; EventName : string;
-    EventParams : array of Variant) of object;
+    EventParams : array of Variant;
+    EventParamTypes : array of Variant;
+    EventParamTypesStr : array of Variant;
+    EventParamNames : array of Variant) of object;
 
   TProperty = class
   private
@@ -85,7 +88,6 @@ type
       property PropertyValue[AName : WideString] : OleVariant read GetPropertyValue
       	write SetPropertyValue;
       property ControlClassName :string read FClassName;
-
       function GetVariable(AVariableName: widestring) : TVariable;
       // events
       property OnEvent : TEventEvent read FOnEvent write FOnEvent;
@@ -99,7 +101,7 @@ type
 implementation
 
 uses
-	ComObj, AXCtrls, Registry, SysUtils;
+	ComObj, AXCtrls, Registry, SysUtils,Messages;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -422,12 +424,37 @@ var
   LParams : array of Variant;
   Loop : integer;
   LThisParam : TVariantArg;
+  LParamTypes : array of Variant;
+  LParamTypesStr : array of Variant;
+  LParamnames : array of Variant;
+  fun:TFunction;
+  pn:integer;
 begin
   if Assigned(FOnEvent) then
   begin
+    fun := FindFunction(AEventName);
+
     SetLength(LParams, Params.cArgs);
+
+    pn := 0;
+    if assigned(fun) then
+    begin
+      pn:=fun.ParameterCount;
+      if pn<Params.cArgs then pn:=Params.cArgs;
+
+      SetLength(LParamnames, pn);
+      SetLength(LParamTypesStr, pn);
+      SetLength(LPAramTypes, pn);
+    end;
+
     for Loop := 0 to Params.cArgs-1 do
     begin
+      if Loop<pn then
+      begin
+        LParamnames[Loop] := fun.Parameter(pn-Loop-1).Name;
+        LParamTypesStr[Loop] := fun.Parameter(pn-Loop-1).FullType;
+        LPAramTypes[Loop] := fun.Parameter(pn-Loop-1).ParamType;
+      end;
       LThisParam := Params.rgvarg[Loop];
       case LThisParam.vt of
         VT_UI1:                  LParams[Loop] := LThisParam.bVal;
@@ -472,7 +499,7 @@ begin
       end;
     end;
 
-    FOnEvent(Self, AEventName, LParams);
+    FOnEvent(Self, AEventName, LParams,LParamTypes,LParamTypesStr,LParamnames);
   end;
 end;
 
@@ -563,7 +590,7 @@ var
       v.fid := Id;
       v.fname := Name;
       v.fType := td.vt;
-      v.fFullType := TypeToString(td);
+      v.fFullType := TypeToString(td,TypeInfo);
       v.fwritable := writable;
       v.freadable := readable;
       PropList.AddObject(Name, v);
