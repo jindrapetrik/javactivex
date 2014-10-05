@@ -30,7 +30,6 @@ public class ActiveXExample extends Frame {
         setLayout(new BorderLayout());
         swfPlayer = new ShockwaveFlash();
         add(swfPlayer, BorderLayout.CENTER);
-        System.out.println(""+swfPlayer.getJavaDefinition());
         addWindowListener(new WindowAdapter() {
 
             @Override

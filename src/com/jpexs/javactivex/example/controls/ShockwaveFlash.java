@@ -33,6 +33,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Method GetTypeInfoCount
+	 * 
 	 * @param pctinfo
 	 */
 	public void GetTypeInfoCount(Object pctinfo) {
@@ -41,6 +42,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method EnforceLocalSecurity
+	 * 
 	 */
 	public void EnforceLocalSecurity() {
 		callMethod("EnforceLocalSecurity");
@@ -48,6 +50,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method GotoFrame
+	 * 
 	 * @param FrameNum
 	 */
 	public void GotoFrame(int FrameNum) {
@@ -56,6 +59,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method Stop
+	 * 
 	 */
 	public void Stop() {
 		callMethod("Stop");
@@ -63,6 +67,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Method AddRef
+	 * 
 	 * @return
 	 */
 	public long AddRef() {
@@ -71,6 +76,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method SetZoomRect
+	 * 
 	 * @param left
 	 * @param top
 	 * @param right
@@ -82,6 +88,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TStopPlay
+	 * 
 	 * @param target
 	 */
 	public void TStopPlay(String target) {
@@ -90,6 +97,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method DisableLocalSecurity
+	 * 
 	 */
 	public void DisableLocalSecurity() {
 		callMethod("DisableLocalSecurity");
@@ -97,6 +105,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TGetProperty
+	 * 
 	 * @param target
 	 * @param property
 	 * @return
@@ -107,6 +116,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Method Invoke
+	 * 
 	 * @param dispidMember
 	 * @param riid
 	 * @param lcid
@@ -122,6 +132,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method LoadMovie
+	 * 
 	 * @param layer
 	 * @param url
 	 */
@@ -131,6 +142,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TSetPropertyNum
+	 * 
 	 * @param target
 	 * @param property
 	 * @param value
@@ -141,6 +153,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TGotoLabel
+	 * 
 	 * @param target
 	 * @param label
 	 */
@@ -150,6 +163,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TGotoFrame
+	 * 
 	 * @param target
 	 * @param FrameNum
 	 */
@@ -159,6 +173,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method Back
+	 * 
 	 */
 	public void Back() {
 		callMethod("Back");
@@ -166,6 +181,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method Zoom
+	 * 
 	 * @param factor
 	 */
 	public void Zoom(int factor) {
@@ -174,6 +190,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method GetVariable
+	 * 
 	 * @param name
 	 * @return
 	 */
@@ -183,6 +200,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method SetReturnValue
+	 * 
 	 * @param returnValue
 	 */
 	public void SetReturnValue(String returnValue) {
@@ -191,6 +209,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TGetPropertyAsNumber
+	 * 
 	 * @param target
 	 * @param property
 	 * @return
@@ -201,6 +220,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method Call
+	 * 
 	 * @param request
 	 * @return
 	 */
@@ -210,6 +230,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TCurrentFrame
+	 * 
 	 * @param target
 	 * @return
 	 */
@@ -219,6 +240,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Method Release
+	 * 
 	 * @return
 	 */
 	public long Release() {
@@ -227,6 +249,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method PercentLoaded
+	 * 
 	 * @return
 	 */
 	public int PercentLoaded() {
@@ -235,6 +258,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method SetVariable
+	 * 
 	 * @param name
 	 * @param value
 	 */
@@ -244,6 +268,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TCallLabel
+	 * 
 	 * @param target
 	 * @param label
 	 */
@@ -253,6 +278,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method FlashVersion
+	 * 
 	 * @return
 	 */
 	public int FlashVersion() {
@@ -261,6 +287,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method CurrentFrame
+	 * 
 	 * @return
 	 */
 	public int CurrentFrame() {
@@ -269,6 +296,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Method GetIDsOfNames
+	 * 
 	 * @param riid
 	 * @param rgszNames
 	 * @param cNames
@@ -281,6 +309,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method FrameLoaded
+	 * 
 	 * @param FrameNum
 	 * @return
 	 */
@@ -290,6 +319,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TGetPropertyNum
+	 * 
 	 * @param target
 	 * @param property
 	 * @return
@@ -300,6 +330,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Method QueryInterface
+	 * 
 	 * @param riid
 	 * @param ppvObj
 	 */
@@ -309,6 +340,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TCallFrame
+	 * 
 	 * @param target
 	 * @param FrameNum
 	 */
@@ -318,6 +350,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TCurrentLabel
+	 * 
 	 * @param target
 	 * @return
 	 */
@@ -327,6 +360,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TPlay
+	 * 
 	 * @param target
 	 */
 	public void TPlay(String target) {
@@ -335,6 +369,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method Rewind
+	 * 
 	 */
 	public void Rewind() {
 		callMethod("Rewind");
@@ -342,6 +377,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Method GetTypeInfo
+	 * 
 	 * @param itinfo
 	 * @param lcid
 	 * @param pptinfo
@@ -352,6 +388,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method Play
+	 * 
 	 */
 	public void Play() {
 		callMethod("Play");
@@ -359,6 +396,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method TSetProperty
+	 * 
 	 * @param target
 	 * @param property
 	 * @param value
@@ -369,6 +407,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method StopPlay
+	 * 
 	 */
 	public void StopPlay() {
 		callMethod("StopPlay");
@@ -376,6 +415,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method Forward
+	 * 
 	 */
 	public void Forward() {
 		callMethod("Forward");
@@ -383,6 +423,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method Pan
+	 * 
 	 * @param x
 	 * @param y
 	 * @param mode
@@ -393,6 +434,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * method IsPlaying
+	 * 
 	 * @return
 	 */
 	public boolean IsPlaying() {
@@ -401,6 +443,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property Playing
+	 * 
 	 * @return Playing value
 	 */
 	public boolean getPlaying() {
@@ -409,6 +452,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property Playing
+	 * 
 	 * @param value New Playing value
 	 */
 	public void setPlaying(boolean value) {
@@ -417,6 +461,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property Quality
+	 * 
 	 * @return Quality value
 	 */
 	public int getQuality() {
@@ -425,6 +470,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property Quality
+	 * 
 	 * @param value New Quality value
 	 */
 	public void setQuality(int value) {
@@ -433,6 +479,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property ScaleMode
+	 * 
 	 * @return ScaleMode value
 	 */
 	public int getScaleMode() {
@@ -441,6 +488,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property ScaleMode
+	 * 
 	 * @param value New ScaleMode value
 	 */
 	public void setScaleMode(int value) {
@@ -449,6 +497,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property AlignMode
+	 * 
 	 * @return AlignMode value
 	 */
 	public int getAlignMode() {
@@ -457,6 +506,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property AlignMode
+	 * 
 	 * @param value New AlignMode value
 	 */
 	public void setAlignMode(int value) {
@@ -465,6 +515,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property BackgroundColor
+	 * 
 	 * @return BackgroundColor value
 	 */
 	public int getBackgroundColor() {
@@ -473,6 +524,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property BackgroundColor
+	 * 
 	 * @param value New BackgroundColor value
 	 */
 	public void setBackgroundColor(int value) {
@@ -481,6 +533,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property Loop
+	 * 
 	 * @return Loop value
 	 */
 	public boolean getLoop() {
@@ -489,6 +542,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property Loop
+	 * 
 	 * @param value New Loop value
 	 */
 	public void setLoop(boolean value) {
@@ -497,6 +551,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property Movie
+	 * 
 	 * @return Movie value
 	 */
 	public String getMovie() {
@@ -505,6 +560,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property Movie
+	 * 
 	 * @param value New Movie value
 	 */
 	public void setMovie(String value) {
@@ -513,6 +569,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property FrameNum
+	 * 
 	 * @return FrameNum value
 	 */
 	public int getFrameNum() {
@@ -521,6 +578,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property FrameNum
+	 * 
 	 * @param value New FrameNum value
 	 */
 	public void setFrameNum(int value) {
@@ -529,6 +587,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property WMode
+	 * 
 	 * @return WMode value
 	 */
 	public String getWMode() {
@@ -537,6 +596,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property WMode
+	 * 
 	 * @param value New WMode value
 	 */
 	public void setWMode(String value) {
@@ -545,6 +605,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property SAlign
+	 * 
 	 * @return SAlign value
 	 */
 	public String getSAlign() {
@@ -553,6 +614,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property SAlign
+	 * 
 	 * @param value New SAlign value
 	 */
 	public void setSAlign(String value) {
@@ -561,6 +623,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property Menu
+	 * 
 	 * @return Menu value
 	 */
 	public boolean getMenu() {
@@ -569,6 +632,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property Menu
+	 * 
 	 * @param value New Menu value
 	 */
 	public void setMenu(boolean value) {
@@ -577,6 +641,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property Base
+	 * 
 	 * @return Base value
 	 */
 	public String getBase() {
@@ -585,6 +650,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property Base
+	 * 
 	 * @param value New Base value
 	 */
 	public void setBase(String value) {
@@ -593,6 +659,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property Scale
+	 * 
 	 * @return Scale value
 	 */
 	public String getScale() {
@@ -601,6 +668,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property Scale
+	 * 
 	 * @param value New Scale value
 	 */
 	public void setScale(String value) {
@@ -609,6 +677,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property DeviceFont
+	 * 
 	 * @return DeviceFont value
 	 */
 	public boolean getDeviceFont() {
@@ -617,6 +686,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property DeviceFont
+	 * 
 	 * @param value New DeviceFont value
 	 */
 	public void setDeviceFont(boolean value) {
@@ -625,6 +695,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property EmbedMovie
+	 * 
 	 * @return EmbedMovie value
 	 */
 	public boolean getEmbedMovie() {
@@ -633,6 +704,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property EmbedMovie
+	 * 
 	 * @param value New EmbedMovie value
 	 */
 	public void setEmbedMovie(boolean value) {
@@ -641,6 +713,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property BGColor
+	 * 
 	 * @return BGColor value
 	 */
 	public String getBGColor() {
@@ -649,6 +722,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property BGColor
+	 * 
 	 * @param value New BGColor value
 	 */
 	public void setBGColor(String value) {
@@ -657,6 +731,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property Quality2
+	 * 
 	 * @return Quality2 value
 	 */
 	public String getQuality2() {
@@ -665,6 +740,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property Quality2
+	 * 
 	 * @param value New Quality2 value
 	 */
 	public void setQuality2(String value) {
@@ -673,6 +749,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property SWRemote
+	 * 
 	 * @return SWRemote value
 	 */
 	public String getSWRemote() {
@@ -681,6 +758,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property SWRemote
+	 * 
 	 * @param value New SWRemote value
 	 */
 	public void setSWRemote(String value) {
@@ -689,6 +767,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property FlashVars
+	 * 
 	 * @return FlashVars value
 	 */
 	public String getFlashVars() {
@@ -697,6 +776,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property FlashVars
+	 * 
 	 * @param value New FlashVars value
 	 */
 	public void setFlashVars(String value) {
@@ -705,6 +785,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property AllowScriptAccess
+	 * 
 	 * @return AllowScriptAccess value
 	 */
 	public String getAllowScriptAccess() {
@@ -713,6 +794,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property AllowScriptAccess
+	 * 
 	 * @param value New AllowScriptAccess value
 	 */
 	public void setAllowScriptAccess(String value) {
@@ -721,6 +803,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property MovieData
+	 * 
 	 * @return MovieData value
 	 */
 	public String getMovieData() {
@@ -729,6 +812,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property MovieData
+	 * 
 	 * @param value New MovieData value
 	 */
 	public void setMovieData(String value) {
@@ -737,6 +821,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property InlineData
+	 * 
 	 * @return InlineData value
 	 */
 	public Object getInlineData() {
@@ -745,6 +830,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property InlineData
+	 * 
 	 * @param value New InlineData value
 	 */
 	public void setInlineData(Object value) {
@@ -753,6 +839,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property SeamlessTabbing
+	 * 
 	 * @return SeamlessTabbing value
 	 */
 	public boolean getSeamlessTabbing() {
@@ -761,6 +848,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property SeamlessTabbing
+	 * 
 	 * @param value New SeamlessTabbing value
 	 */
 	public void setSeamlessTabbing(boolean value) {
@@ -769,6 +857,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property Profile
+	 * 
 	 * @return Profile value
 	 */
 	public boolean getProfile() {
@@ -777,6 +866,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property Profile
+	 * 
 	 * @param value New Profile value
 	 */
 	public void setProfile(boolean value) {
@@ -785,6 +875,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property ProfileAddress
+	 * 
 	 * @return ProfileAddress value
 	 */
 	public String getProfileAddress() {
@@ -793,6 +884,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property ProfileAddress
+	 * 
 	 * @param value New ProfileAddress value
 	 */
 	public void setProfileAddress(String value) {
@@ -801,6 +893,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property ProfilePort
+	 * 
 	 * @return ProfilePort value
 	 */
 	public int getProfilePort() {
@@ -809,6 +902,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property ProfilePort
+	 * 
 	 * @param value New ProfilePort value
 	 */
 	public void setProfilePort(int value) {
@@ -817,6 +911,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property AllowNetworking
+	 * 
 	 * @return AllowNetworking value
 	 */
 	public String getAllowNetworking() {
@@ -825,6 +920,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property AllowNetworking
+	 * 
 	 * @param value New AllowNetworking value
 	 */
 	public void setAllowNetworking(String value) {
@@ -833,6 +929,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property AllowFullScreen
+	 * 
 	 * @return AllowFullScreen value
 	 */
 	public String getAllowFullScreen() {
@@ -841,6 +938,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property AllowFullScreen
+	 * 
 	 * @param value New AllowFullScreen value
 	 */
 	public void setAllowFullScreen(String value) {
@@ -849,6 +947,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property AllowFullScreenInteractive
+	 * 
 	 * @return AllowFullScreenInteractive value
 	 */
 	public String getAllowFullScreenInteractive() {
@@ -857,6 +956,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property AllowFullScreenInteractive
+	 * 
 	 * @param value New AllowFullScreenInteractive value
 	 */
 	public void setAllowFullScreenInteractive(String value) {
@@ -865,6 +965,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Getter for property IsDependent
+	 * 
 	 * @return IsDependent value
 	 */
 	public boolean getIsDependent() {
@@ -873,6 +974,7 @@ public class ShockwaveFlash extends ActiveXControl {
 
 	/**
 	 * Setter for property IsDependent
+	 * 
 	 * @param value New IsDependent value
 	 */
 	public void setIsDependent(boolean value) {
