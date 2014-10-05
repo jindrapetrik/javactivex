@@ -20,8 +20,10 @@ import java.math.BigInteger;
 import java.net.URLDecoder;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -49,6 +51,9 @@ public class ActiveXControl extends Panel {
     private static final int CMD_GET_METHOD_PARAMS = 12;
     private static final int CMD_GET_OCX_CLASSES = 13;
     private static final int CMD_GET_REGISTERED_CLASSES = 14;
+    private static final int CMD_GET_PROPERTY_TYPE = 15;
+
+    private static final Object AXLOCK = new Object();
 
     private int hwnd;
     private String guid;
@@ -56,6 +61,7 @@ public class ActiveXControl extends Panel {
     private long cid = -1;
     private String progId;
     private boolean shown = false;
+    private String className;
 
     private static final int ECHO_INTERVAL = 100;
 
@@ -104,6 +110,8 @@ public class ActiveXControl extends Panel {
 
         Kernel32.INSTANCE.ConnectNamedPipe(pipe, null);
 
+        echo();
+
         syncTimer.schedule(new TimerTask() {
 
             @Override
@@ -132,7 +140,7 @@ public class ActiveXControl extends Panel {
     }
 
     private static void echo() {
-        synchronized (ActiveXControl.class) {
+        synchronized (AXLOCK) {
             writeCommand(CMD_ECHO);
             String ok = readString();
             if (!ok.equals("OK")) {
@@ -278,16 +286,17 @@ public class ActiveXControl extends Panel {
      * @param name Property name
      * @return Type class
      */
-    public Class getPropertyType(String name) {
-        synchronized (ActiveXControl.class) {
-            writeComponentCommand(CMD_GET_PROPERTY);
+    public ActiveXProperty getProperty(String name) {
+        synchronized (AXLOCK) {
+            writeComponentCommand(CMD_GET_PROPERTY_TYPE);
             writeString(name);
+            readResult();
             String type = readString();
-            String val = readString();
-            if ("Error".equals(type)) {
-                throw new ActiveXException(val);
-            }
-            return strToClass(type);
+            readString();
+            boolean readable = readString().equals("True");
+            readString();
+            boolean writable = readString().equals("True");
+            return new ActiveXProperty(name, strToClass(type), readable, writable);
         }
     }
 
@@ -307,113 +316,114 @@ public class ActiveXControl extends Panel {
      * @param name Method name
      * @return Method object
      */
-    public synchronized ActiveXMethodInfo getMethod(final String name) {
+    public ActiveXMethodInfo getMethod(final String name) {
         if (!methodExists(name)) {
             return null;
         }
 
         final List<String> argNames = new ArrayList<>();
         final List<Class> argTypes = new ArrayList<>();
-
-        writeComponentCommand(CMD_GET_METHOD_PARAMS);
-        writeString(name);
-        readResult();
-        final String fname = readString();
-        final String returnName = readString();
-        final Class returnType = strToClass(readString());
-        int parameterCount = readUI16();
-        for (int i = 0; i < parameterCount; i++) {
-            String pname = readString();
-            String ptype = readString();
-            argNames.add(pname);
-            argTypes.add(strToClass(ptype));
-        }
-        final String doc = readString();
-
-        return new ActiveXMethodInfo() {
-
-            private String typeToStr(Class c) {
-                if (c == null) {
-                    return "Object";
-                }
-                return c.getSimpleName();
+        synchronized (AXLOCK) {
+            writeComponentCommand(CMD_GET_METHOD_PARAMS);
+            writeString(name);
+            readResult();
+            final String fname = readString();
+            final String returnName = readString();
+            final Class returnType = strToClass(readString());
+            int parameterCount = readUI16();
+            for (int i = 0; i < parameterCount; i++) {
+                String pname = readString();
+                String ptype = readString();
+                argNames.add(pname);
+                argTypes.add(strToClass(ptype));
             }
+            final String doc = readString();
 
-            @Override
-            public String toString() {
-                String ret = typeToStr(returnType) + " " + getName() + "(";
-                for (int i = 0; i < argNames.size(); i++) {
-                    if (i > 0) {
-                        ret += ", ";
+            return new ActiveXMethodInfo() {
+
+                private String typeToStr(Class c) {
+                    if (c == null) {
+                        return "Object";
                     }
-                    ret += typeToStr(argTypes.get(i)) + " " + argNames.get(i);
+                    return c.getSimpleName();
                 }
-                ret += ")";
-                return ret;
-            }
 
-            @Override
-            public List<String> getArgumentNames() {
-                return argNames;
-            }
-
-            @Override
-            public String getDoc() {
-                return doc;
-            }
-
-            @Override
-            public String getReturnName() {
-                return returnName;
-            }
-
-            @Override
-            public Object getOwner() {
-                return ActiveXControl.this;
-            }
-
-            @Override
-            public Class getReturnType() {
-                return returnType;
-            }
-
-            @Override
-            public List<Class> getArgumentTypes() {
-                return argTypes;
-            }
-
-            @Override
-            public Object call(Object... args) {
-                return callMethodArr(name, args);
-            }
-
-            @Override
-            public String getName() {
-                return fname;
-            }
-
-            @Override
-            public int hashCode() {
-                return name.hashCode();
-            }
-
-            @Override
-            public boolean equals(Object obj) {
-                if (obj == null) {
-                    return false;
+                @Override
+                public String toString() {
+                    String ret = typeToStr(returnType) + " " + getName() + "(";
+                    for (int i = 0; i < argNames.size(); i++) {
+                        if (i > 0) {
+                            ret += ", ";
+                        }
+                        ret += typeToStr(argTypes.get(i)) + " " + argNames.get(i);
+                    }
+                    ret += ")";
+                    return ret;
                 }
-                if (!(obj instanceof ActiveXMethodInfo)) {
-                    return false;
+
+                @Override
+                public List<String> getArgumentNames() {
+                    return argNames;
                 }
-                ActiveXMethodInfo m = (ActiveXMethodInfo) obj;
 
-                return getName().equals(m.getName());
-            }
+                @Override
+                public String getDoc() {
+                    return doc;
+                }
 
-        };
+                @Override
+                public String getReturnName() {
+                    return returnName;
+                }
+
+                @Override
+                public Object getOwner() {
+                    return ActiveXControl.this;
+                }
+
+                @Override
+                public Class getReturnType() {
+                    return returnType;
+                }
+
+                @Override
+                public List<Class> getArgumentTypes() {
+                    return argTypes;
+                }
+
+                @Override
+                public Object call(Object... args) {
+                    return callMethodArr(name, args);
+                }
+
+                @Override
+                public String getName() {
+                    return fname;
+                }
+
+                @Override
+                public int hashCode() {
+                    return name.hashCode();
+                }
+
+                @Override
+                public boolean equals(Object obj) {
+                    if (obj == null) {
+                        return false;
+                    }
+                    if (!(obj instanceof ActiveXMethodInfo)) {
+                        return false;
+                    }
+                    ActiveXMethodInfo m = (ActiveXMethodInfo) obj;
+
+                    return getName().equals(m.getName());
+                }
+
+            };
+        }
     }
 
-    private synchronized void writeCid() {
+    private void writeCid() {
         writeUI32(cid);
         String type = readString();
         String val = readString();
@@ -422,7 +432,7 @@ public class ActiveXControl extends Panel {
         }
     }
 
-    private synchronized void writeComponentCommand(int command) {
+    private void writeComponentCommand(int command) {
         writeCommand(command);
         writeCid();
     }
@@ -433,8 +443,8 @@ public class ActiveXControl extends Panel {
      * @param name Property name
      * @return Value of property
      */
-    public Object getProperty(String name) {
-        synchronized (ActiveXControl.class) {
+    public Object getPropertyValue(String name) {
+        synchronized (AXLOCK) {
             writeComponentCommand(CMD_GET_PROPERTY);
             writeString(name);
             String type = readString();
@@ -446,7 +456,7 @@ public class ActiveXControl extends Panel {
         }
     }
 
-    private static synchronized void readResult() {
+    private static void readResult() {
         String type = readString();
         String val = readString();
         if ("Error".equals(type)) {
@@ -460,8 +470,8 @@ public class ActiveXControl extends Panel {
      * @param name Property name
      * @param value New value
      */
-    public void setProperty(String name, Object value) {
-        synchronized (ActiveXControl.class) {
+    public void setPropertyValue(String name, Object value) {
+        synchronized (AXLOCK) {
             writeComponentCommand(CMD_SET_PROPERTY);
             writeString(name);
             writeString("" + value);
@@ -532,14 +542,17 @@ public class ActiveXControl extends Panel {
      */
     public ActiveXControl(String filename, String guid) {
         this.guid = guid;
-        writeCommand(CMD_NEW);
-        writeString(filename);
-        writeString(guid);
-        readResult();
-        cid = readUI32();
-        this.guid = readString();
-        progId = readString();
-        docString = readString();
+        synchronized (AXLOCK) {
+            writeCommand(CMD_NEW);
+            writeString(filename);
+            writeString(guid);
+            readResult();
+            cid = readUI32();
+            this.guid = readString();
+            progId = readString();
+            className = readString();
+            docString = readString();
+        }
         setBackground(Color.green);
         addComponentListener(new ComponentListener() {
             @Override
@@ -560,10 +573,11 @@ public class ActiveXControl extends Panel {
             public void componentHidden(ComponentEvent e) {
             }
         });
+
     }
 
     private void resize() {
-        synchronized (ActiveXControl.class) {
+        synchronized (AXLOCK) {
             if (!shown) {
                 writeComponentCommand(CMD_SET_PARENT);
                 hwnd = Native.getComponentPointer(ActiveXControl.this).hashCode();
@@ -582,7 +596,7 @@ public class ActiveXControl extends Panel {
      * @return
      */
     public List<String> getPropertyNames() {
-        synchronized (ActiveXControl.class) {
+        synchronized (AXLOCK) {
             writeComponentCommand(CMD_LIST_PROPERTIES);
             return readStrings();
         }
@@ -593,10 +607,10 @@ public class ActiveXControl extends Panel {
      *
      * @return
      */
-    public List<String> getMethodNames() {
-        synchronized (ActiveXControl.class) {
+    public Set<String> getMethodNames() {
+        synchronized (AXLOCK) {
             writeComponentCommand(CMD_LIST_METHODS);
-            return readStrings();
+            return new HashSet<>(readStrings());
         }
     }
 
@@ -605,8 +619,8 @@ public class ActiveXControl extends Panel {
      *
      * @return
      */
-    public synchronized List<String> getEventNames() {
-        synchronized (ActiveXControl.class) {
+    public List<String> getEventNames() {
+        synchronized (AXLOCK) {
             writeComponentCommand(CMD_LIST_EVENTS);
             return readStrings();
         }
@@ -620,7 +634,7 @@ public class ActiveXControl extends Panel {
      * @return Return value of method
      */
     public Object callMethod(String methodName, Object... args) {
-        synchronized (ActiveXControl.class) {
+        synchronized (AXLOCK) {
             return callMethodArr(methodName, args);
         }
     }
@@ -632,22 +646,24 @@ public class ActiveXControl extends Panel {
      * @param args Call arguments
      * @return Return value of method
      */
-    public synchronized Object callMethodArr(String methodName, Object[] args) {
-        writeComponentCommand(CMD_CALL_METHOD);
-        writeString(methodName);
-        writeUI16(args.length);
-        for (Object o : args) {
-            writeString("" + o);
+    public Object callMethodArr(String methodName, Object[] args) {
+        synchronized (AXLOCK) {
+            writeComponentCommand(CMD_CALL_METHOD);
+            writeString(methodName);
+            writeUI16(args.length);
+            for (Object o : args) {
+                writeString("" + o);
+            }
+            String type = readString();
+            String val = readString();
+            if ("Error".equals(type)) {
+                throw new ActiveXException(val);
+            }
+            return strToValue(type, val);
         }
-        String type = readString();
-        String val = readString();
-        if ("Error".equals(type)) {
-            throw new ActiveXException(val);
-        }
-        return strToValue(type, val);
     }
 
-    private synchronized static List<String> readStrings() {
+    private static List<String> readStrings() {
         int len = readUI16();
         List<String> ret = new ArrayList<>();
         for (int i = 0; i < len; i++) {
@@ -656,7 +672,7 @@ public class ActiveXControl extends Panel {
         return ret;
     }
 
-    private synchronized static String readString() {
+    private static String readString() {
         int len = readUI8();
         byte data[] = new byte[len];
         read(data);
@@ -667,29 +683,29 @@ public class ActiveXControl extends Panel {
         }
     }
 
-    private synchronized static int readUI16() {
+    private static int readUI16() {
         byte data[] = new byte[2];
         read(data);
         return ((data[0] & 0xff) << 8) + (data[1] & 0xff);
     }
 
-    private synchronized static long readUI32() {
+    private static long readUI32() {
         byte data[] = new byte[4];
         read(data);
         return ((data[0] & 0xff) << 24) + ((data[0] & 0xff) << 16) + ((data[0] & 0xff) << 8) + (data[1] & 0xff);
     }
 
-    private synchronized static void writeCommand(int cmd) {
+    private static void writeCommand(int cmd) {
         writeUI8(cmd);
     }
 
-    private synchronized static int readUI8() {
+    private static int readUI8() {
         byte data[] = new byte[1];
         read(data);
         return data[0] & 0xff;
     }
 
-    private synchronized static int read(byte res[]) {
+    private static int read(byte res[]) {
         final IntByReference ibr = new IntByReference();
         int read = 0;
         while (read < res.length) {
@@ -705,11 +721,11 @@ public class ActiveXControl extends Panel {
         return 0;
     }
 
-    private synchronized static void writeUI8(int val) {
+    private static void writeUI8(int val) {
         write(new byte[]{(byte) val});
     }
 
-    private synchronized static void writeUI32(long val) {
+    private static void writeUI32(long val) {
         write(new byte[]{
             (byte) ((val >> 24) & 0xff),
             (byte) ((val >> 16) & 0xff),
@@ -718,14 +734,14 @@ public class ActiveXControl extends Panel {
         });
     }
 
-    private synchronized static void writeUI16(long val) {
+    private static void writeUI16(long val) {
         write(new byte[]{
             (byte) ((val >> 8) & 0xff),
             (byte) ((val) & 0xff)
         });
     }
 
-    private synchronized static void writeString(String s) {
+    private static void writeString(String s) {
         byte data[];
         try {
             data = s.getBytes("UTF-8");
@@ -736,7 +752,7 @@ public class ActiveXControl extends Panel {
         write(data);
     }
 
-    private synchronized static int write(byte data[]) {
+    private static int write(byte data[]) {
         IntByReference ibr = new IntByReference();
         boolean result = Kernel32.INSTANCE.WriteFile(pipe, data, data.length, ibr, null);
         if (!result) {
@@ -807,8 +823,18 @@ public class ActiveXControl extends Panel {
      *
      * @return
      */
-    public String getJavaClassName() {
-        return progIdToJavaClassName(progId);
+    public String getClassName() {
+        return className;
+    }
+
+    private static String firstToUpperCase(String s) {
+        if (s == null) {
+            return s;
+        }
+        if (s.isEmpty()) {
+            return s;
+        }
+        return s.substring(0, 1).toUpperCase() + s.substring(1);
     }
 
     /**
@@ -817,94 +843,101 @@ public class ActiveXControl extends Panel {
      * @return
      */
     public String getJavaDefinition() {
-        String ret = "";
+        StringBuilder sb = new StringBuilder();
         String nl = System.lineSeparator();
-        String controlName = getJavaClassName();
+        String controlName = getClassName();
 
         if (controlName == null) {
             controlName = "MyClass";
+        }        
+        sb.append("import com.jpexs.javactivex.ActiveXControl;").append(nl);
+        sb.append("import java.io.File;").append(nl);
+        sb.append(nl);
+        sb.append("/**").append(nl);
+        if(docString.isEmpty()){
+            sb.append(" * Class ").append(controlName).append(nl);
         }
-        ret += "package com.jpexs.javactivex.controls;" + nl;
-        ret += "import com.jpexs.javactivex.ActiveXControl;" + nl;
-        ret += "import java.io.File;" + nl;
-        ret += nl;
-        ret += "/**" + nl;
-        ret += " * Class " + progId + nl;
-        ret += " * " + docString + nl;
-        ret += " */" + nl;
-        ret += "public class " + controlName + " extends ActiveXControl {" + nl;
+        sb.append(" * ").append(docString).append(nl);
+        sb.append(" */").append(nl);
+        sb.append("public class ").append(controlName).append(" extends ActiveXControl {").append(nl);
 
-        ret += nl;
-        ret += "\t/**" + nl;
-        ret += "\t * Constructs class which is already registered" + nl;
-        ret += "\t */" + nl;
-        ret += "\tpublic " + controlName + "() {" + nl;
-        ret += "\t\tthis(\"\");" + nl;
-        ret += "\t}" + nl;
+        sb.append(nl);
+        sb.append("\t/**").append(nl);
+        sb.append("\t * Constructs class which is already registered").append(nl);
+        sb.append("\t */").append(nl);
+        sb.append("\tpublic ").append(controlName).append("() {").append(nl);
+        sb.append("\t\tthis(\"\");").append(nl);
+        sb.append("\t}").append(nl);
 
-        ret += nl;
-        ret += "\t/**" + nl;
-        ret += "\t * Constructs " + controlName + " from OCX path" + nl;
-        ret += "\t * @param ocxPath Path to OCX file which contains " + controlName + " class";
-        ret += "\t */" + nl;
-        ret += "\tpublic " + controlName + "(String ocxPath) {" + nl;
-        ret += "\t\tsuper(ocxPath,\"" + guid + "\");" + nl;
-        ret += "\t}" + nl;
+        sb.append(nl);
+        sb.append("\t/**").append(nl);
+        sb.append("\t * Constructs ").append(controlName).append(" from OCX path").append(nl);
+        sb.append("\t * @param ocxPath Path to OCX file which contains ").append(controlName).append(" class").append(nl);
+        sb.append("\t */").append(nl);
+        sb.append("\tpublic ").append(controlName).append("(String ocxPath) {").append(nl);
+        sb.append("\t\tsuper(ocxPath,\"").append(guid).append("\");").append(nl);
+        sb.append("\t}").append(nl);
 
-        ret += nl;
-        ret += "\t/**" + nl;
-        ret += "\t * Constructs " + controlName + " from OCX file" + nl;
-        ret += "\t * @param ocx OCX file which contains " + controlName + " class";
-        ret += "\t */" + nl;
-        ret += "\tpublic " + controlName + "(File ocx) {" + nl;
-        ret += "\t\tthis(ocx.getAbsolutePath());" + nl;
-        ret += "\t}" + nl;
+        sb.append(nl);
+        sb.append("\t/**").append(nl);
+        sb.append("\t * Constructs ").append(controlName).append(" from OCX file").append(nl);
+        sb.append("\t * @param ocx OCX file which contains ").append(controlName).append(" class").append(nl);
+        sb.append("\t */").append(nl);
+        sb.append("\tpublic ").append(controlName).append("(File ocx) {").append(nl);
+        sb.append("\t\tthis(ocx.getAbsolutePath());").append(nl);
+        sb.append("\t}").append(nl);
 
-        for (String metName : getMethodNames()) {
-            ret += nl;
+        Set<String> methodNames = getMethodNames();                   
+        
+        for (String metName : methodNames) {
+            sb.append(nl);
             ActiveXMethodInfo m = getMethod(metName);
             String doc = m.getDoc();
 
-            ret += "\t/**" + nl;
+            sb.append("\t/**").append(nl);
             if (!doc.isEmpty()) {
-                ret += "\t * " + doc.trim().replaceAll("\r\n|\r|\n", "\t * ") + nl;
+                sb.append("\t * ").append(doc.trim().replaceAll("\r\n|\r|\n", "\t * ")).append(nl);
             } else {
-                ret += "\t * Method " + metName + nl;
+                sb.append("\t * Method ").append(metName).append(nl);
             }
+            sb.append("\t * ").append(nl);
             for (String pname : m.getArgumentNames()) {
-                ret += "\t * @param " + pname + nl;
+                sb.append("\t * @param ").append(pname).append(nl);
             }
             Class retType = m.getReturnType();
 
             if (retType != void.class) {
-                ret += "\t * @return" + nl;
+                sb.append("\t * @return").append(nl);
             }
-            ret += "\t */" + nl;
-            ret += "\tpublic " + m.toString() + " {" + nl;
-            ret += "\t\t";
+            sb.append("\t */").append(nl);
+            sb.append("\tpublic ").append(m.toString()).append(" {").append(nl);
+            sb.append("\t\t");
 
             if (retType != void.class) {
-                ret += "return ";
+                sb.append("return ");
                 if (retType != null) {
                     if (boxedMap.containsKey(retType)) {
-                        ret += "(" + boxedMap.get(retType).getSimpleName() + ")";
+                        sb.append("(").append(boxedMap.get(retType).getSimpleName()).append(")");
                     } else {
-                        ret += "(" + retType.getSimpleName() + ")";
+                        sb.append("(").append(retType.getSimpleName()).append(")");
                     }
                 }
             }
-            ret += "callMethod(\"" + metName + "\"";
+            sb.append("callMethod(\"").append(metName).append("\"");
             for (String pname : m.getArgumentNames()) {
-                ret += ", ";
-                ret += pname;
+                sb.append(", ");
+                sb.append(pname);
             }
-            ret += ");" + nl;
-            ret += "\t}" + nl;
+            sb.append(");").append(nl);
+            sb.append("\t}").append(nl);
 
         }
 
-        for (String propName : getPropertyNames()) {
-            Class type = getPropertyType(propName);
+        List<String> propNames = getPropertyNames();
+
+        for (String propName : propNames) {
+            ActiveXProperty p = getProperty(propName);
+            Class type = p.type;
             if (type == null) {
                 type = Object.class;
             }
@@ -912,27 +945,34 @@ public class ActiveXControl extends Panel {
             if (boxedMap.containsKey(coerceType)) {
                 coerceType = boxedMap.get(coerceType);
             }
-            ret += nl;
-            ret += "\t/**" + nl;
-            ret += "\t * Getter for property " + propName + nl;
-            ret += "\t * @return " + propName + " value" + nl;
-            ret += "\t */" + nl;
-            ret += "\tpublic " + type.getSimpleName() + " get" + propName + (methodExists("get" + propName) ? "_" : "") + "() {" + nl;
-            ret += "\t\treturn (" + coerceType.getSimpleName() + ")getProperty(\"" + propName + "\");" + nl;
-            ret += "\t}" + nl;
-            ret += nl;
-            ret += "\t/**" + nl;
-            ret += "\t * Setter for property " + propName + nl;
-            ret += "\t * @param value New " + propName + " value" + nl;
-            ret += "\t */" + nl;
-            ret += "\tpublic void set" + propName + (methodExists("set" + propName) ? "_" : "") + "(" + type.getSimpleName() + " value) {" + nl;
-            ret += "\t\tsetProperty(\"" + propName + "\",value);" + nl;
-            ret += "\t}" + nl;
+            if (p.readable) {
+                sb.append(nl);
+                sb.append("\t/**").append(nl);
+                sb.append("\t * Getter for property ").append(propName).append(nl);
+                sb.append("\t * ").append(nl);
+                sb.append("\t * @return ").append(propName).append(" value").append(nl);
+                sb.append("\t */").append(nl);
+                sb.append("\tpublic ").append(type.getSimpleName()).append(" get").append(firstToUpperCase(propName)).append(methodExists("get" + firstToUpperCase(propName)) ? "_" : "").append("() {").append(nl);
+                sb.append("\t\treturn (").append(coerceType.getSimpleName()).append(")getPropertyValue(\"").append(propName).append("\");").append(nl);
+                sb.append("\t}").append(nl);
+            }
+            
+            if (p.writable) {
+                sb.append(nl);
+                sb.append("\t/**").append(nl);
+                sb.append("\t * Setter for property ").append(propName).append(nl);
+                sb.append("\t * ").append(nl);
+                sb.append("\t * @param value New ").append(propName).append(" value").append(nl);
+                sb.append("\t */").append(nl);
+                sb.append("\tpublic void set").append(firstToUpperCase(propName)).append(methodExists("set" + firstToUpperCase(propName)) ? "_" : "").append("(").append(type.getSimpleName()).append(" value) {").append(nl);
+                sb.append("\t\tsetPropertyValue(\"").append(propName).append("\",value);").append(nl);
+                sb.append("\t}").append(nl);
+            }
         }
 
-        ret += "}";
+        sb.append("}");
 
-        return ret;
+        return sb.toString();
     }
 
     /**
@@ -949,12 +989,14 @@ public class ActiveXControl extends Panel {
      *
      * @return
      */
-    public synchronized static List<ActiveXClassInfo> getRegisteredClasses() {
+    public static List<ActiveXClassInfo> getRegisteredClasses() {
         List<ActiveXClassInfo> ret = new ArrayList<>();
-        writeCommand(CMD_GET_REGISTERED_CLASSES);
-        int cnt = readUI16();
-        for (int i = 0; i < cnt; i++) {
-            ret.add(new ActiveXClassInfo(readString(), readString(), readString(), new File(readString())));
+        synchronized (AXLOCK) {
+            writeCommand(CMD_GET_REGISTERED_CLASSES);
+            int cnt = readUI16();
+            for (int i = 0; i < cnt; i++) {
+                ret.add(new ActiveXClassInfo(readString(), readString(), readString(), new File(readString())));
+            }
         }
         return ret;
     }

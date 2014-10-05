@@ -18,6 +18,25 @@ type
   TEventEvent = procedure(Sender : TObject; EventName : string;
     EventParams : array of Variant) of object;
 
+  TProperty = class
+  private
+     fid:integer;
+     fname:string;
+     fType:TVarType;
+     fwritable : Boolean;
+     freadable : Boolean;
+     function PropTypeAsString:string;
+
+    public
+    property name:string read fname;
+    property id:integer read fid;
+    property propType:TVarType read fType;
+    property typeAsString:string read propTypeAsString;
+    property writable:Boolean read fwritable;
+    property readable:Boolean read freadable;
+
+  end;
+
 	TActiveXHost = class(TOleControl)
   	private
       FOnEvent: TEventEvent;
@@ -41,6 +60,7 @@ type
       FMethods : TStringList;
       FEvents : TStringList;
       FTypeLibViewer : TTypeLibViewer;
+      FClassname : string;
     	procedure InitControlData; override;
     	procedure InitControlInterface(const Obj: IUnknown); override;
       procedure StandardEvent(DispID: TDispID; var Params: TDispParams); override;
@@ -63,6 +83,9 @@ type
       property DocString : WideString read getDocString;
       property PropertyValue[AName : WideString] : OleVariant read GetPropertyValue
       	write SetPropertyValue;
+      property ControlClassName :string read FClassName;
+
+      function GetVariable(AVariableName: widestring) : TVariable;
       // events
       property OnEvent : TEventEvent read FOnEvent write FOnEvent;
   end;
@@ -111,8 +134,13 @@ end;
 ////////////////////////////////////////////////////////////////////////////////
 
 procedure TActiveXHost.Initialize(AFileName : string);
+var
+LTypeInfo:TTypeInformation;
 begin;
   FTypeLibViewer := TTypeLibViewer.Create(AFileName);
+
+  LTypeInfo := FTypeLibViewer.FindGUID(FClassID);
+  FClassname := LTypeInfo.Name;
 
   // get properties
   FProps := TStringList.Create;
@@ -121,9 +149,11 @@ begin;
 
   // get methods
   FMethods := TStringList.Create;
+  FMethods.Duplicates := dupIgnore;
   GetMethodsList;
 
   FEvents := TStringList.Create;
+  FEvents.Duplicates := dupIgnore;
   PopulateEventList;
 end;
 
@@ -273,11 +303,16 @@ begin
   begin
     for Loop := 0 to LTypeInfo.ImplementedInterfacesCount-1 do
     begin
+
+
+
       // are we interested in this interface?
       if (tfSource in LTypeInfo.ImplementedInterface(Loop).TypeFlags) then
         LInterested := AEvents
       else
         LInterested := not AEvents;
+
+      LInterested := LInterested and (tfDefault in LTypeInfo.ImplementedInterface(Loop).TypeFlags);
 
       if LInterested then
       begin
@@ -480,6 +515,19 @@ begin
   end;
 end;
 
+
+function TActiveXHost.GetVariable(AVariableName: widestring) : TVariable;
+var
+  LTypeInfo : TTypeInformation;
+begin
+  LTypeInfo := FTypeLibViewer.FindGUID(FClassID);
+  Result := nil;
+  if Assigned(LTypeInfo) then
+  begin
+    Result := LTypeInfo.FindVariable(AVariableName);
+  end;
+end;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 procedure EnumDispatchProperties(Dispatch: IDispatch; PropType: TGUID;
@@ -493,13 +541,30 @@ var
   FuncDesc: PFuncDesc;
   VarDesc: PVarDesc;
 
-  procedure SaveName(Id: Integer);
+  procedure SaveName(Id: Integer;pt:word;readable:Boolean;writable:Boolean);
   var
     Name: WideString;
+    v:TProperty;
+    k:integer;
   begin
+
+    for k := 0 to PropList.Count - 1 do
+      begin
+        if (PropList.Objects[k] as TProperty).fid = Id then
+         begin
+           if readable then (PropList.Objects[k] as TProperty).freadable := true;
+           if writable then (PropList.Objects[k] as TProperty).fwritable := true;
+           Exit;
+         end;
+      end;
     OleCheck(TypeInfo.GetDocumentation(Id, @Name, nil, nil, nil));
-    if PropList.IndexOfObject(TObject(Id)) = -1 then
-      PropList.AddObject(Name, TObject(Id));
+      v := TProperty.Create;
+      v.fid := Id;
+      v.fname := Name;
+      v.fType := pt;
+      v.fwritable := writable;
+      v.freadable := readable;
+      PropList.AddObject(Name, v);
   end;
 
   function IsPropType(const TypeInfo: ITypeInfo; TypeDesc: PTypeDesc): Boolean;
@@ -562,7 +627,7 @@ begin
       try
         //if (VarDesc.wVarFlags and VARFLAG_FREADONLY <> 0) and
         if IsPropType(TypeInfo, @VarDesc.elemdescVar.tdesc) then
-          SaveName(VarDesc.memid);
+          SaveName(VarDesc.memid,VarDesc.elemdescVar.tdesc.vt,true,VarDesc.wVarFlags and VARFLAG_FREADONLY = 0);
       finally
         TypeInfo.ReleaseVarDesc(VarDesc);
       end;
@@ -573,12 +638,17 @@ begin
       try
         if ((FuncDesc.invkind = INVOKE_PROPERTYGET) and (FuncDesc.cParams < 1) and
           HasMember(TypeInfo, TypeAttr.cFuncs, FuncDesc.memid, INVOKE_PROPERTYSET) and
-          IsPropType(TypeInfo, @FuncDesc.elemdescFunc.tdesc)) or
-          ((FuncDesc.invkind and INVOKE_PROPERTYSET <> 0) and (FuncDesc.cParams < 2) and
-          //HasMember(TypeInfo, TypeAttr.cFuncs, FuncDesc.memid, INVOKE_PROPERTYGET) and
+          IsPropType(TypeInfo, @FuncDesc.elemdescFunc.tdesc)) then
+          begin
+            SaveName(FuncDesc.memid,FuncDesc.elemdescFunc.tdesc.vt,true,false);
+          end;
+
+          if ((FuncDesc.invkind and INVOKE_PROPERTYSET <> 0) and (FuncDesc.cParams < 2) and
           IsPropType(TypeInfo,
             @FuncDesc.lprgelemdescParam[FuncDesc.cParams - 1].tdesc)) then
-            SaveName(FuncDesc.memid);
+            begin
+              SaveName(FuncDesc.memid,FuncDesc.lprgelemdescParam[FuncDesc.cParams - 1].tdesc.vt,false,true);
+            end;
       finally
         TypeInfo.ReleaseFuncDesc(FuncDesc);
       end;
@@ -588,5 +658,10 @@ begin
   end;
 end;
 
+
+function TProperty.PropTypeAsString:string;
+begin
+   Result := TypeToString(Self.ftype);
+end;
 
 end.

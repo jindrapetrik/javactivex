@@ -7,7 +7,7 @@ unit TypeLibViewer;
 interface
 
 uses
-  ActiveX, Contnrs;
+  ActiveX, Contnrs, Dialogs;
 
 type
   TTypeKind = (tkEnum, tkRecord, tkModule, tkInterface, tkDispatch, tkCoClass,
@@ -17,14 +17,24 @@ type
 
   TImplementedTypeInformation = class;
 
+  TVariable = class
+    private
+      FType : TVarType;
+      FName : widestring;
+     public
+      function VariableType : TVarType;
+      function TypeAsString : widestring;
+      function Name : widestring;
+  end;
+
   TParameter = class
     private
       FType : TVarType;
-      FName : string;
+      FName : widestring;
     public
       function ParamType : TVarType;
-      function TypeAsString : string;
-      function Name : string;
+      function TypeAsString : widestring;
+      function Name : widestring;
   end;
 
   TFunction = class
@@ -76,14 +86,18 @@ type
       function GetFunction(Index : integer) : TFunction;
       function FindFunction(AName : string; var ImplementingType : TTypeInformation) : TFunction;
       function VariableCount : integer;
-      function VariableName(Index : integer) : Widestring;
+      function Variable(Index : integer) : TVariable;
       function ImplementedInterfacesCount : integer;
       function ImplementedInterface(Index : integer) : TImplementedTypeInformation;
       function GUID : TGUID;
       function TypeKindString : string;
+      function FindVariable(AName:widestring) : TVariable;
+      function GetAlias():WideString;
   end;
 
-  TTypeFlags = set of (tfDefault, tfSource, tfRestricted);
+
+
+  TTypeFlags = set of (tfDefault, tfSource, tfRestricted, tfDefaultVTable);
 
   TImplementedTypeInformation = class(TTypeInformation)
     private
@@ -105,6 +119,8 @@ type
       function TypeInformation(Index : integer) : TTypeInformation;
       function FindGUID(AGUID : TGUID) : TTypeInformation;
   end;
+
+  function TypeToString(pt:TVarType):WideString;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -164,20 +180,21 @@ begin
     LImplIntf := TImplementedTypeInformation.Create(GetImplementedInterface(Loop));
     OleCheck(FTypeInfo.GetImplTypeFlags(Loop, LTypeImplFlags));
     LImplIntf.FTypeFlags := [];
-    if LTypeImplFlags div IMPLTYPEFLAG_FRESTRICTED = 1 then
+    if (LTypeImplFlags and IMPLTYPEFLAG_FRESTRICTED) = IMPLTYPEFLAG_FRESTRICTED then
     begin
       LImplIntf.FTypeFlags := LImplIntf.FTypeFlags + [tfRestricted];
-      LTypeImplFlags := LTypeImplFlags - IMPLTYPEFLAG_FRESTRICTED;
     end;
-    if LTypeImplFlags div IMPLTYPEFLAG_FSOURCE = 1 then
+    if (LTypeImplFlags and IMPLTYPEFLAG_FSOURCE) = IMPLTYPEFLAG_FSOURCE then
     begin
       LImplIntf.FTypeFlags := LImplIntf.FTypeFlags + [tfSource];
-      LTypeImplFlags := LTypeImplFlags - IMPLTYPEFLAG_FSOURCE;
     end;
-    if LTypeImplFlags div IMPLTYPEFLAG_FDEFAULT = 1 then
+    if (LTypeImplFlags and IMPLTYPEFLAG_FDEFAULT) = IMPLTYPEFLAG_FDEFAULT then
     begin
       LImplIntf.FTypeFlags := LImplIntf.FTypeFlags + [tfDefault];
-      LTypeImplFlags := LTypeImplFlags - IMPLTYPEFLAG_FDEFAULT;
+    end;
+    if (LTypeImplFlags and IMPLTYPEFLAG_FDEFAULTVTABLE) = IMPLTYPEFLAG_FDEFAULTVTABLE then
+    begin
+      LImplIntf.FTypeFlags := LImplIntf.FTypeFlags + [tfDefaultVTable];
     end;
     FIntfList.Add(LImplIntf);
   end;
@@ -271,10 +288,13 @@ begin
   // now all implemented interfaces
   for Loop := 0 to ImplementedInterfacesCount-1 do
   begin
+   if tfDefault in ImplementedInterface(Loop).TypeFlags then
+    begin
     if ImplementedInterface(Loop).FindFunction(AName, ImplementingType) <> nil then
     begin
       Result := ImplementedInterface(Loop).FindFunction(AName, ImplementingType);
       Exit;
+    end;
     end;
   end;
 end;
@@ -288,13 +308,36 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-function TTypeInformation.VariableName(Index : integer) : Widestring;
+function TTypeInformation.Variable(Index : integer) : TVariable;
 var
   LVarDesc : PVarDesc;
 begin
+  Result:=TVariable.Create;
   OleCheck(FTypeInfo.GetVarDesc(Index, LVarDesc));
-  OleCheck(FTypeInfo.GetDocumentation(LVarDesc.memid, @Result, nil, nil, nil));
+  Result.FType := LVarDesc.elemdescVar.tdesc.vt;
+  OleCheck(FTypeInfo.GetDocumentation(LVarDesc.memid, @Result.FName, nil, nil, nil));
   FTypeInfo.ReleaseVarDesc(LVarDesc);
+end;
+
+
+function TTypeInformation.FindVariable(AName:widestring) : TVariable;
+var i:integer;
+cnt:integer;
+v:TVariable;
+begin
+  Result:=nil;
+  cnt:=VariableCount;
+  for i := 0 to cnt - 1 do
+   begin
+     v:=Variable(i);
+     if v.FName = AName then
+     begin
+       Result := v;
+       Exit;
+     end;
+     v.Free;
+   end;
+
 end;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -485,31 +528,97 @@ begin
   Result := FDocString;
 end;
 
-////////////////////////////////////////////////////////////////////////////////
-{ TParameter }
 
-function TParameter.TypeAsString: string;
+
+function TypeToString(pt:TVarType):WideString;
 var t:integer;
 stype : string;
 begin
 
   stype := '';
-  if (ParamType and vt_vector) <> 0 then stype := stype + ' Vector';
-  if (ParamType and vt_array) <> 0 then stype := stype + ' Array';
-  if (ParamType and vt_byref) <> 0 then stype := stype + ' ByRef';
+  if (pt and vt_vector) <> 0 then stype := stype + ' Vector';
+  if (pt and vt_array) <> 0 then stype := stype + ' Array';
+  if (pt and vt_byref) <> 0 then stype := stype + ' ByRef';
   stype := trim(stype);
 
 
-  t := ParamType and VT_TYPEMASK;
+  t := pt and VT_TYPEMASK;
   case t of
     vt_empty : Result := 'Empty';
-    vt_null : Result := 'Null';    vt_i2 : Result := 'Smallint';    vt_i4 : Result := 'Integer';    vt_r4 : Result := 'Single';    vt_r8 : Result := 'Double';    vt_cy : Result := 'Currency';    vt_date : Result := 'Date';    vt_bstr : Result := 'OleStr';    vt_dispatch : Result := 'Dispatch';    vt_error : Result := 'Error';    vt_bool : Result := 'Boolean';    vt_variant : Result := 'Variant';    vt_unknown : Result := 'Unknown';    vt_decimal : Result := 'Decimal';    vt_i1  : Result := 'ShortInt';    vt_ui1 : Result := 'Byte';    vt_ui2 : Result := 'Word';    vt_ui4  : Result := 'LongWord';    vt_i8 : Result := 'Int64';    vt_int : Result := 'Int';    vt_uint : Result := 'UInt';    vt_void : Result := 'Void';    vt_hresult : Result := 'HResult';    vt_ptr : Result := 'Pointer';    vt_safearray : Result := 'SafeArray';    vt_carray : Result := 'CArray';    vt_userdefined : Result := 'UserDefined';    vt_lpstr : Result := 'LPStr';    vt_lpwstr : Result := 'LPWStr';    vt_int_ptr : Result := 'IntPtr';    vt_uint_ptr : Result := 'UIntPtr';    vt_filetime : Result := 'FileTime';    vt_blob : Result := 'Blob';    vt_stream : Result := 'Stream';    vt_storage : Result := 'Storage';    vt_streamed_object : Result := 'StreamedObject';    vt_blob_object : Result := 'BlobObject';    vt_cf : Result := 'CF';    vt_clsid : Result := 'CLSID';    else
-    Result := 'Unknown (' + IntToStr(ParamType) + ')';
+    vt_null : Result := 'Null';
+    vt_i2 : Result := 'Smallint';
+    vt_i4 : Result := 'Integer';
+    vt_r4 : Result := 'Single';
+    vt_r8 : Result := 'Double';
+    vt_cy : Result := 'Currency';
+    vt_date : Result := 'Date';
+    vt_bstr : Result := 'OleStr';
+    vt_dispatch : Result := 'Dispatch';
+    vt_error : Result := 'Error';
+    vt_bool : Result := 'Boolean';
+    vt_variant : Result := 'Variant';
+    vt_unknown : Result := 'Unknown';
+    vt_decimal : Result := 'Decimal';
+    vt_i1  : Result := 'ShortInt';
+    vt_ui1 : Result := 'Byte';
+    vt_ui2 : Result := 'Word';
+    vt_ui4  : Result := 'LongWord';
+    vt_i8 : Result := 'Int64';
+    vt_int : Result := 'Int';
+    vt_uint : Result := 'UInt';
+    vt_void : Result := 'Void';
+    vt_hresult : Result := 'HResult';
+    vt_ptr : Result := 'Pointer';
+    vt_safearray : Result := 'SafeArray';
+    vt_carray : Result := 'CArray';
+    vt_userdefined : Result := 'UserDefined';
+    vt_lpstr : Result := 'LPStr';
+    vt_lpwstr : Result := 'LPWStr';
+    vt_int_ptr : Result := 'IntPtr';
+    vt_uint_ptr : Result := 'UIntPtr';
+    vt_filetime : Result := 'FileTime';
+    vt_blob : Result := 'Blob';
+    vt_stream : Result := 'Stream';
+    vt_storage : Result := 'Storage';
+    vt_streamed_object : Result := 'StreamedObject';
+    vt_blob_object : Result := 'BlobObject';
+    vt_cf : Result := 'CF';
+    vt_clsid : Result := 'CLSID';
+    else
+    Result := 'Unknown (' + IntToStr(pt) + ')';
   end;
 
   Result := trim(stype + ' ' + Result);
 end;
 
+////////////////////////////////////////////////////////////////////////////////
+{ TVariable }
+
+function TVariable.TypeAsString: widestring;
+begin
+  Result:=TypeToString(VariableType);
+end;
+////////////////////////////////////////////////////////////////////////////////
+
+function TVariable.VariableType: TVarType;
+begin
+  Result := FType;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+
+function TVariable.Name: widestring;
+begin
+  Result := FName;
+end;
+
+////////////////////////////////////////////////////////////////////////////////
+{ TParameter }
+
+function TParameter.TypeAsString: widestring;
+begin
+  Result:=TypeToString(ParamType);
+end;
 ////////////////////////////////////////////////////////////////////////////////
 
 function TParameter.ParamType: TVarType;
@@ -519,9 +628,15 @@ end;
 
 ////////////////////////////////////////////////////////////////////////////////
 
-function TParameter.Name: string;
+function TParameter.Name: widestring;
 begin
   Result := FName;
+end;
+
+
+function TTypeInformation.GetAlias:WideString;
+begin
+
 end;
 
 end.

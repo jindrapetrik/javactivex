@@ -12,7 +12,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.File;
 
 /**
  * Example of using ActiveX components - Flash player
@@ -22,12 +21,16 @@ import java.io.File;
 public class ActiveXExample extends Frame {
 
     private ShockwaveFlash swfPlayer;
+    
+    //TODO: WMP - {6BF52A52-394A-11d3-B153-00C04F79FAA6}
 
     public ActiveXExample() {
+        setSize(800, 600);
         setTitle("Sample ActiveX Component in Java");
         setLayout(new BorderLayout());
         swfPlayer = new ShockwaveFlash();
         add(swfPlayer, BorderLayout.CENTER);
+        System.out.println(""+swfPlayer.getJavaDefinition());
         addWindowListener(new WindowAdapter() {
 
             @Override
@@ -35,10 +38,7 @@ public class ActiveXExample extends Frame {
                 System.exit(0);
             }
 
-        });
-        setSize(800, 600);
-
-        swfPlayer.setBackgroundColor(0xff0000);
+        });        
 
         Panel buttonsPanel = new Panel(new FlowLayout());
 
@@ -83,7 +83,7 @@ public class ActiveXExample extends Frame {
     /**
      * @param args the command line arguments
      */
-    public static void main(String[] args) {
+    public static void main(String[] args) {                        
         new ActiveXExample().setVisible(true);
     }
 

@@ -25,7 +25,7 @@ import com.sun.jna.win32.W32APIOptions;
 public interface Shell32 extends StdCallLibrary {
 
     Shell32 INSTANCE = (Shell32) Native.loadLibrary("shell32", Shell32.class,
-            W32APIOptions.UNICODE_OPTIONS);
+            W32APIOptions.UNICODE_OPTIONS);    
 
     /**
      * @param lpExecInfo

@@ -135,6 +135,11 @@ var us:UTF8String;
 begin
   ReadPipe(self.pipe,buf,1);
   len:=buf[0];
+  if len = 0 then
+  begin
+    Result:='';
+    exit;
+  end;
   ReadPipe(pipe,buf,len);
   SetLength(us,len);
   CopyMemory(@us[1], @buf[0], len);
@@ -317,6 +322,7 @@ begin
     end;
     WriteString(hosts[val].guid);
     WriteString(hosts[val].progId);
+    WriteString(hosts[val].host.ControlClassName);
     WriteString(hosts[val].docString);
   end
   else
@@ -512,6 +518,7 @@ var
   LTypeLibVwr : TTypeLibViewer;
   ok : boolean;
   regList:TRegAxCtrlList;
+  prop : TProperty;
 const
   CMD_ECHO = 0;
   CMD_NEW  = 1;
@@ -528,6 +535,7 @@ const
   CMD_GET_METHOD_PARAMS = 12;
   CMD_GET_OCX_CLASSES = 13;
   CMD_GET_REGISTERED_CLASSES = 14;
+  CMD_GET_PROPERTY_TYPE = 15;
 
 begin
 
@@ -546,6 +554,32 @@ begin
           end;
           Synchronize(CancelWatchDog);
           case cmd of
+            CMD_GET_PROPERTY_TYPE:
+            begin
+              cid := ReadUI32();
+              Synchronize(CheckCid);
+              if cid<>-1 then
+              begin
+                propName := ReadString();
+                i:=hosts[cid].host.Properties.IndexOf(propName);
+                if i=-1 then
+                  begin
+                    WriteString('Error');
+                    WriteString('Property does not exist');
+                  end
+                  else
+                  begin
+                    WriteString('Boolean');
+                    WriteString('True');
+                    prop:=hosts[cid].host.Properties.Objects[i] as TProperty;
+                    WriteString(prop.typeAsString);
+                    WriteString('Boolean');
+                    if prop.readable then WriteString('True') else WriteString('False');
+                    WriteString('Boolean');
+                    if prop.writable then WriteString('True') else WriteString('False');
+                  end;
+              end;
+            end;
             CMD_GET_REGISTERED_CLASSES:
             begin
               regList := TRegAxCtrlList.Create;
