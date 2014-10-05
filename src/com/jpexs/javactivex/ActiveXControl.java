@@ -186,9 +186,9 @@ public class ActiveXControl extends Panel {
             case "ShortInt":
                 return short.class;
             case "Byte":
-                return Integer.class;
+                return int.class;
             case "Word":
-                return Integer.class;
+                return int.class;
             case "LongWord":
                 return long.class;
             case "Int64":
