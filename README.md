@@ -26,7 +26,9 @@ In `testdata/sampleflash` is sample SWF file to open it in the example.
 Warning
 ======================
 It is all *EXPERIMENTAL*. It has many missing features. For example Pointer types, complex types, Array types are not working,...
-It works on Windows only obviously.
+*Only methods with basic types work (int,long,double,float)*
+
+Also it works on Windows only obviously.
 
 
 License
