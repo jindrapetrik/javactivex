@@ -28,7 +28,7 @@ public class ActiveXExample extends Frame {
         setSize(800, 600);
         setTitle("Sample ActiveX Component in Java");
         setLayout(new BorderLayout());
-        swfPlayer = new ShockwaveFlash();
+        swfPlayer = new ShockwaveFlash();        
         add(swfPlayer, BorderLayout.CENTER);
         addWindowListener(new WindowAdapter() {
 

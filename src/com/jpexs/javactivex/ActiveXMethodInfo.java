@@ -32,19 +32,33 @@ public interface ActiveXMethodInfo {
     public Object getOwner();
 
     /**
-     * Get return type of the method
+     * Get return type of the method as Java class
      *
      * @return
      */
     public Class getReturnType();
+    
+    /**
+     * Get return type of the method
+     *
+     * @return
+     */
+    public String getReturnTypeStr();
+
+    /**
+     * Get type of arguments as Java classes
+     *
+     * @return
+     */
+    public List<Class> getArgumentTypes();
 
     /**
      * Get type of arguments
      *
      * @return
      */
-    public List<Class> getArgumentTypes();
-
+    public List<String> getArgumentTypesStr();
+    
     /**
      * Get argument names
      *

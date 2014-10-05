@@ -34,7 +34,7 @@ public class ShockwaveFlash extends ActiveXControl {
 	/**
 	 * Method GetTypeInfoCount
 	 * 
-	 * @param pctinfo
+	 * @param pctinfo (Pointer) 
 	 */
 	public void GetTypeInfoCount(Object pctinfo) {
 		callMethod("GetTypeInfoCount", pctinfo);
@@ -118,13 +118,13 @@ public class ShockwaveFlash extends ActiveXControl {
 	 * Method Invoke
 	 * 
 	 * @param dispidMember
-	 * @param riid
+	 * @param riid (Pointer) 
 	 * @param lcid
 	 * @param wFlags
-	 * @param pdispparams
-	 * @param pvarResult
-	 * @param pexcepinfo
-	 * @param puArgErr
+	 * @param pdispparams (Pointer) 
+	 * @param pvarResult (Pointer) 
+	 * @param pexcepinfo (Pointer) 
+	 * @param puArgErr (Pointer) 
 	 */
 	public void Invoke(int dispidMember, Object riid, long lcid, Integer wFlags, Object pdispparams, Object pvarResult, Object pexcepinfo, Object puArgErr) {
 		callMethod("Invoke", dispidMember, riid, lcid, wFlags, pdispparams, pvarResult, pexcepinfo, puArgErr);
@@ -297,11 +297,11 @@ public class ShockwaveFlash extends ActiveXControl {
 	/**
 	 * Method GetIDsOfNames
 	 * 
-	 * @param riid
-	 * @param rgszNames
+	 * @param riid (Pointer) 
+	 * @param rgszNames (Pointer) 
 	 * @param cNames
 	 * @param lcid
-	 * @param rgdispid
+	 * @param rgdispid (Pointer) 
 	 */
 	public void GetIDsOfNames(Object riid, Object rgszNames, int cNames, long lcid, Object rgdispid) {
 		callMethod("GetIDsOfNames", riid, rgszNames, cNames, lcid, rgdispid);
@@ -331,8 +331,8 @@ public class ShockwaveFlash extends ActiveXControl {
 	/**
 	 * Method QueryInterface
 	 * 
-	 * @param riid
-	 * @param ppvObj
+	 * @param riid (Pointer) 
+	 * @param ppvObj (Pointer) 
 	 */
 	public void QueryInterface(Object riid, Object ppvObj) {
 		callMethod("QueryInterface", riid, ppvObj);
@@ -380,7 +380,7 @@ public class ShockwaveFlash extends ActiveXControl {
 	 * 
 	 * @param itinfo
 	 * @param lcid
-	 * @param pptinfo
+	 * @param pptinfo (Pointer) 
 	 */
 	public void GetTypeInfo(int itinfo, long lcid, Object pptinfo) {
 		callMethod("GetTypeInfo", itinfo, lcid, pptinfo);
@@ -822,7 +822,7 @@ public class ShockwaveFlash extends ActiveXControl {
 	/**
 	 * Getter for property InlineData
 	 * 
-	 * @return InlineData value
+	 * @return (Unknown) InlineData value
 	 */
 	public Object getInlineData() {
 		return (Object)getPropertyValue("InlineData");
@@ -831,7 +831,7 @@ public class ShockwaveFlash extends ActiveXControl {
 	/**
 	 * Setter for property InlineData
 	 * 
-	 * @param value New InlineData value
+	 * @param value (Unknown) New InlineData value
 	 */
 	public void setInlineData(Object value) {
 		setPropertyValue("InlineData",value);

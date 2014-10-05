@@ -149,7 +149,7 @@ public class ActiveXControl extends Panel {
         }
     }
 
-    private static Class strToClass(String type) {
+    public static Class strToClass(String type) {
         switch (type) {
             case "Empty":
                 return null;
@@ -296,7 +296,7 @@ public class ActiveXControl extends Panel {
             boolean readable = readString().equals("True");
             readString();
             boolean writable = readString().equals("True");
-            return new ActiveXProperty(name, strToClass(type), readable, writable);
+            return new ActiveXProperty(name, strToClass(type),type, readable, writable);
         }
     }
 
@@ -323,18 +323,21 @@ public class ActiveXControl extends Panel {
 
         final List<String> argNames = new ArrayList<>();
         final List<Class> argTypes = new ArrayList<>();
+        final List<String> argTypesStr = new ArrayList<>();
         synchronized (AXLOCK) {
             writeComponentCommand(CMD_GET_METHOD_PARAMS);
             writeString(name);
             readResult();
             final String fname = readString();
             final String returnName = readString();
-            final Class returnType = strToClass(readString());
+            final String returnTypeStr = readString();
+            final Class returnType = strToClass(returnTypeStr);            
             int parameterCount = readUI16();
             for (int i = 0; i < parameterCount; i++) {
                 String pname = readString();
                 String ptype = readString();
                 argNames.add(pname);
+                argTypesStr.add(ptype);
                 argTypes.add(strToClass(ptype));
             }
             final String doc = readString();
@@ -377,6 +380,13 @@ public class ActiveXControl extends Panel {
                 }
 
                 @Override
+                public String getReturnTypeStr() {
+                    return returnTypeStr;
+                }
+
+                
+                
+                @Override
                 public Object getOwner() {
                     return ActiveXControl.this;
                 }
@@ -390,6 +400,13 @@ public class ActiveXControl extends Panel {
                 public List<Class> getArgumentTypes() {
                     return argTypes;
                 }
+
+                @Override
+                public List<String> getArgumentTypesStr() {
+                    return argTypesStr;
+                }
+                
+                
 
                 @Override
                 public Object call(Object... args) {
@@ -901,13 +918,25 @@ public class ActiveXControl extends Panel {
                 sb.append("\t * Method ").append(metName).append(nl);
             }
             sb.append("\t * ").append(nl);
-            for (String pname : m.getArgumentNames()) {
-                sb.append("\t * @param ").append(pname).append(nl);
+            
+            List<String> argnames = m.getArgumentNames();
+            List<Class> argtypes = m.getArgumentTypes();
+            List<String> argtypesstr = m.getArgumentTypesStr();
+            for (int i=0;i<argnames.size();i++) {                
+                sb.append("\t * @param ").append(argnames.get(i));
+                if(argtypes.get(i)==null){
+                    sb.append(" (").append(argtypesstr.get(i)).append(") ");
+                }
+                sb.append(nl);
             }
             Class retType = m.getReturnType();
 
             if (retType != void.class) {
-                sb.append("\t * @return").append(nl);
+                sb.append("\t * @return");
+                if(retType == null){
+                    sb.append(" (").append(m.getReturnTypeStr()).append(")");
+                }
+                sb.append(nl);
             }
             sb.append("\t */").append(nl);
             sb.append("\tpublic ").append(m.toString()).append(" {").append(nl);
@@ -938,9 +967,11 @@ public class ActiveXControl extends Panel {
         for (String propName : propNames) {
             ActiveXProperty p = getProperty(propName);
             Class type = p.type;
+            boolean customType = false;
             if (type == null) {
                 type = Object.class;
-            }
+                customType = true;
+            }                      
             Class coerceType = type;
             if (boxedMap.containsKey(coerceType)) {
                 coerceType = boxedMap.get(coerceType);
@@ -950,7 +981,11 @@ public class ActiveXControl extends Panel {
                 sb.append("\t/**").append(nl);
                 sb.append("\t * Getter for property ").append(propName).append(nl);
                 sb.append("\t * ").append(nl);
-                sb.append("\t * @return ").append(propName).append(" value").append(nl);
+                sb.append("\t * @return ");
+                if(customType){
+                    sb.append("(").append(p.typeStr).append(") ");
+                }
+                sb.append(propName).append(" value").append(nl);
                 sb.append("\t */").append(nl);
                 sb.append("\tpublic ").append(type.getSimpleName()).append(" get").append(firstToUpperCase(propName)).append(methodExists("get" + firstToUpperCase(propName)) ? "_" : "").append("() {").append(nl);
                 sb.append("\t\treturn (").append(coerceType.getSimpleName()).append(")getPropertyValue(\"").append(propName).append("\");").append(nl);
@@ -962,7 +997,11 @@ public class ActiveXControl extends Panel {
                 sb.append("\t/**").append(nl);
                 sb.append("\t * Setter for property ").append(propName).append(nl);
                 sb.append("\t * ").append(nl);
-                sb.append("\t * @param value New ").append(propName).append(" value").append(nl);
+                sb.append("\t * @param value ");
+                if(customType){
+                    sb.append("(").append(p.typeStr).append(") ");
+                }
+                sb.append("New ").append(propName).append(" value").append(nl);
                 sb.append("\t */").append(nl);
                 sb.append("\tpublic void set").append(firstToUpperCase(propName)).append(methodExists("set" + firstToUpperCase(propName)) ? "_" : "").append("(").append(type.getSimpleName()).append(" value) {").append(nl);
                 sb.append("\t\tsetPropertyValue(\"").append(propName).append("\",value);").append(nl);
