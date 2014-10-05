@@ -20,21 +20,23 @@ type
   TVariable = class
     private
       FType : TVarType;
+      FFullType : widestring;
       FName : widestring;
      public
-      function VariableType : TVarType;
-      function TypeAsString : widestring;
-      function Name : widestring;
+      property VariableType : TVarType read FType;
+      property FullType : widestring read FFullType;
+      property Name : widestring read FName;
   end;
 
   TParameter = class
     private
       FType : TVarType;
+      FFullType :WideString;
       FName : widestring;
     public
-      function ParamType : TVarType;
-      function TypeAsString : widestring;
-      function Name : widestring;
+      property ParamType : TVarType read FType;
+      property FullType : widestring read FFullType;
+      property Name : widestring read FName;
   end;
 
   TFunction = class
@@ -92,7 +94,6 @@ type
       function GUID : TGUID;
       function TypeKindString : string;
       function FindVariable(AName:widestring) : TVariable;
-      function GetAlias():WideString;
   end;
 
 
@@ -120,7 +121,7 @@ type
       function FindGUID(AGUID : TGUID) : TTypeInformation;
   end;
 
-  function TypeToString(pt:TVarType):WideString;
+  function TypeToString(ttype:tagTYPEDESC):WideString;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -229,6 +230,7 @@ begin
 
       // get the return type
       LThisFunc.FReturnType.FType := LFuncDesc.elemdescFunc.tdesc.vt;
+      LThisFunc.FReturnType.FFullType := TypeToString(LFuncDesc.elemdescFunc.tdesc);
 
       OleCheck(FTypeInfo.GetNames(LThisFunc.FMemberID, @LNameList,
         Length(LNameList), LParamCount));
@@ -239,6 +241,7 @@ begin
         LThisParam := TParameter.Create;
         LThisParam.FName := LNameList[LParamLoop + 1];
         LThisParam.FType := LFuncDesc.lprgelemdescParam[LParamLoop].tdesc.vt;
+        LThisParam.FFullType := TypeToString(LFuncDesc.lprgelemdescParam[LParamLoop].tdesc);
         LThisFunc.FParameters.Add(LThisParam);
       end;
 
@@ -315,6 +318,8 @@ begin
   Result:=TVariable.Create;
   OleCheck(FTypeInfo.GetVarDesc(Index, LVarDesc));
   Result.FType := LVarDesc.elemdescVar.tdesc.vt;
+  Result.FFullType := TypeToString(LVarDesc.elemdescVar.tdesc);
+
   OleCheck(FTypeInfo.GetDocumentation(LVarDesc.memid, @Result.FName, nil, nil, nil));
   FTypeInfo.ReleaseVarDesc(LVarDesc);
 end;
@@ -530,15 +535,17 @@ end;
 
 
 
-function TypeToString(pt:TVarType):WideString;
+function TypeToString(ttype:TTypeDesc):WideString;
 var t:integer;
-stype : string;
+  stype : string;
+  pt:TVarType;
 begin
 
   stype := '';
-  if (pt and vt_vector) <> 0 then stype := stype + ' Vector';
-  if (pt and vt_array) <> 0 then stype := stype + ' Array';
-  if (pt and vt_byref) <> 0 then stype := stype + ' ByRef';
+  pt:=ttype.vt;
+  if (pt and vt_vector) <> 0 then stype := stype + 'Vector:';
+  if (pt and vt_array) <> 0 then stype := stype + 'Array:';
+  if (pt and vt_byref) <> 0 then stype := stype + 'ByRef:';
   stype := trim(stype);
 
 
@@ -568,7 +575,10 @@ begin
     vt_uint : Result := 'UInt';
     vt_void : Result := 'Void';
     vt_hresult : Result := 'HResult';
-    vt_ptr : Result := 'Pointer';
+    vt_ptr :
+    begin
+      Result := 'Pointer|'+TypeToString(ttype.ptdesc^);
+    end;
     vt_safearray : Result := 'SafeArray';
     vt_carray : Result := 'CArray';
     vt_userdefined : Result := 'UserDefined';
@@ -588,55 +598,8 @@ begin
     Result := 'Unknown (' + IntToStr(pt) + ')';
   end;
 
-  Result := trim(stype + ' ' + Result);
+  Result := trim(stype + Result);
 end;
 
-////////////////////////////////////////////////////////////////////////////////
-{ TVariable }
-
-function TVariable.TypeAsString: widestring;
-begin
-  Result:=TypeToString(VariableType);
-end;
-////////////////////////////////////////////////////////////////////////////////
-
-function TVariable.VariableType: TVarType;
-begin
-  Result := FType;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-
-function TVariable.Name: widestring;
-begin
-  Result := FName;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-{ TParameter }
-
-function TParameter.TypeAsString: widestring;
-begin
-  Result:=TypeToString(ParamType);
-end;
-////////////////////////////////////////////////////////////////////////////////
-
-function TParameter.ParamType: TVarType;
-begin
-  Result := FType;
-end;
-
-////////////////////////////////////////////////////////////////////////////////
-
-function TParameter.Name: widestring;
-begin
-  Result := FName;
-end;
-
-
-function TTypeInformation.GetAlias:WideString;
-begin
-
-end;
 
 end.

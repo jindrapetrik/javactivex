@@ -34,7 +34,7 @@ public class ShockwaveFlash extends ActiveXControl {
 	/**
 	 * Method GetTypeInfoCount
 	 * 
-	 * @param pctinfo (Pointer) 
+	 * @param pctinfo (Pointer|UInt) 
 	 */
 	public void GetTypeInfoCount(Object pctinfo) {
 		callMethod("GetTypeInfoCount", pctinfo);
@@ -118,15 +118,15 @@ public class ShockwaveFlash extends ActiveXControl {
 	 * Method Invoke
 	 * 
 	 * @param dispidMember
-	 * @param riid (Pointer) 
+	 * @param riid (Pointer|UserDefined) 
 	 * @param lcid
 	 * @param wFlags
-	 * @param pdispparams (Pointer) 
-	 * @param pvarResult (Pointer) 
-	 * @param pexcepinfo (Pointer) 
-	 * @param puArgErr (Pointer) 
+	 * @param pdispparams (Pointer|UserDefined) 
+	 * @param pvarResult (Pointer|Variant) 
+	 * @param pexcepinfo (Pointer|UserDefined) 
+	 * @param puArgErr (Pointer|UInt) 
 	 */
-	public void Invoke(int dispidMember, Object riid, long lcid, Integer wFlags, Object pdispparams, Object pvarResult, Object pexcepinfo, Object puArgErr) {
+	public void Invoke(int dispidMember, Object riid, long lcid, int wFlags, Object pdispparams, Object pvarResult, Object pexcepinfo, Object puArgErr) {
 		callMethod("Invoke", dispidMember, riid, lcid, wFlags, pdispparams, pvarResult, pexcepinfo, puArgErr);
 	}
 
@@ -297,11 +297,11 @@ public class ShockwaveFlash extends ActiveXControl {
 	/**
 	 * Method GetIDsOfNames
 	 * 
-	 * @param riid (Pointer) 
-	 * @param rgszNames (Pointer) 
+	 * @param riid (Pointer|UserDefined) 
+	 * @param rgszNames (Pointer|Pointer|ShortInt) 
 	 * @param cNames
 	 * @param lcid
-	 * @param rgdispid (Pointer) 
+	 * @param rgdispid (Pointer|Integer) 
 	 */
 	public void GetIDsOfNames(Object riid, Object rgszNames, int cNames, long lcid, Object rgdispid) {
 		callMethod("GetIDsOfNames", riid, rgszNames, cNames, lcid, rgdispid);
@@ -331,8 +331,8 @@ public class ShockwaveFlash extends ActiveXControl {
 	/**
 	 * Method QueryInterface
 	 * 
-	 * @param riid (Pointer) 
-	 * @param ppvObj (Pointer) 
+	 * @param riid (Pointer|UserDefined) 
+	 * @param ppvObj (Pointer|Pointer|Void) 
 	 */
 	public void QueryInterface(Object riid, Object ppvObj) {
 		callMethod("QueryInterface", riid, ppvObj);
@@ -380,7 +380,7 @@ public class ShockwaveFlash extends ActiveXControl {
 	 * 
 	 * @param itinfo
 	 * @param lcid
-	 * @param pptinfo (Pointer) 
+	 * @param pptinfo (Pointer|Pointer|Void) 
 	 */
 	public void GetTypeInfo(int itinfo, long lcid, Object pptinfo) {
 		callMethod("GetTypeInfo", itinfo, lcid, pptinfo);

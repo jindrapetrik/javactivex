@@ -23,19 +23,20 @@ type
      fid:integer;
      fname:string;
      fType:TVarType;
+     fFullType:widestring;
      fwritable : Boolean;
      freadable : Boolean;
-     function PropTypeAsString:string;
 
     public
     property name:string read fname;
     property id:integer read fid;
     property propType:TVarType read fType;
-    property typeAsString:string read propTypeAsString;
+    property propFullType:widestring read fFullType;
     property writable:Boolean read fwritable;
     property readable:Boolean read freadable;
 
   end;
+
 
 	TActiveXHost = class(TOleControl)
   	private
@@ -541,7 +542,7 @@ var
   FuncDesc: PFuncDesc;
   VarDesc: PVarDesc;
 
-  procedure SaveName(Id: Integer;pt:word;readable:Boolean;writable:Boolean);
+  procedure SaveName(Id: Integer;td:TTypeDesc;readable:Boolean;writable:Boolean);
   var
     Name: WideString;
     v:TProperty;
@@ -561,7 +562,8 @@ var
       v := TProperty.Create;
       v.fid := Id;
       v.fname := Name;
-      v.fType := pt;
+      v.fType := td.vt;
+      v.fFullType := TypeToString(td);
       v.fwritable := writable;
       v.freadable := readable;
       PropList.AddObject(Name, v);
@@ -627,7 +629,9 @@ begin
       try
         //if (VarDesc.wVarFlags and VARFLAG_FREADONLY <> 0) and
         if IsPropType(TypeInfo, @VarDesc.elemdescVar.tdesc) then
-          SaveName(VarDesc.memid,VarDesc.elemdescVar.tdesc.vt,true,VarDesc.wVarFlags and VARFLAG_FREADONLY = 0);
+        begin
+          SaveName(VarDesc.memid,VarDesc.elemdescVar.tdesc,true,VarDesc.wVarFlags and VARFLAG_FREADONLY = 0);
+        end;
       finally
         TypeInfo.ReleaseVarDesc(VarDesc);
       end;
@@ -640,14 +644,14 @@ begin
           HasMember(TypeInfo, TypeAttr.cFuncs, FuncDesc.memid, INVOKE_PROPERTYSET) and
           IsPropType(TypeInfo, @FuncDesc.elemdescFunc.tdesc)) then
           begin
-            SaveName(FuncDesc.memid,FuncDesc.elemdescFunc.tdesc.vt,true,false);
+            SaveName(FuncDesc.memid,FuncDesc.elemdescFunc.tdesc,true,false);
           end;
 
           if ((FuncDesc.invkind and INVOKE_PROPERTYSET <> 0) and (FuncDesc.cParams < 2) and
           IsPropType(TypeInfo,
             @FuncDesc.lprgelemdescParam[FuncDesc.cParams - 1].tdesc)) then
             begin
-              SaveName(FuncDesc.memid,FuncDesc.lprgelemdescParam[FuncDesc.cParams - 1].tdesc.vt,false,true);
+              SaveName(FuncDesc.memid,FuncDesc.lprgelemdescParam[FuncDesc.cParams - 1].tdesc,false,true);
             end;
       finally
         TypeInfo.ReleaseFuncDesc(FuncDesc);
@@ -659,9 +663,6 @@ begin
 end;
 
 
-function TProperty.PropTypeAsString:string;
-begin
-   Result := TypeToString(Self.ftype);
-end;
+
 
 end.

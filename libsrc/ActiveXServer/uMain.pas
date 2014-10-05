@@ -401,7 +401,7 @@ end;
 procedure TPipeThread.WriteParameter(val:TParameter);
 begin
   WriteString(val.Name);
-  WriteString(val.TypeAsString);
+  WriteString(val.FullType);
 end;
 
 procedure TPipeThread.GetMethodParams;
@@ -572,7 +572,7 @@ begin
                     WriteString('Boolean');
                     WriteString('True');
                     prop:=hosts[cid].host.Properties.Objects[i] as TProperty;
-                    WriteString(prop.typeAsString);
+                    WriteString(prop.PropFullType);
                     WriteString('Boolean');
                     if prop.readable then WriteString('True') else WriteString('False');
                     WriteString('Boolean');
