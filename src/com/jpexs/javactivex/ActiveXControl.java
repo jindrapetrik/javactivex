@@ -193,7 +193,6 @@ public class ActiveXControl extends Panel {
                 return long.class;
             case "Int64":
                 return BigInteger.class;
-            //dalsi
             case "Int":
                 return int.class;
             case "UInt":
