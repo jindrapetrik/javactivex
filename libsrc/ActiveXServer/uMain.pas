@@ -6,6 +6,10 @@ uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs,ActiveXHost, ExtCtrls, TypeLibViewer,Registry, RegAxCtrlList;
 
+const
+  MAX_EVENT_COUNT = 1000;
+  dolog = false;
+
 type
   TfrmMain = class(TForm)
     tmrWatchDog: TTimer;
@@ -41,6 +45,23 @@ type
      EventParamTypes : array of Variant;
      EventParamTypesStr : array of Variant;
      EventParamNames : array of Variant;
+     destructor Destroy; override;
+  end;
+
+  TEventList = class
+    private
+       start:integer;
+        FLock: TRTLCriticalSection;
+       _count:integer;
+       _events:array[0..MAX_EVENT_COUNT-1] of TAEvent;
+       function GetCount():integer;
+    public
+      constructor Create();
+      destructor Destroy();override;
+      procedure Add(e:TAEvent);
+      function Pop():TAEvent;
+      property Count:Integer read GetCount;
+
   end;
 
   TPipeThread = class(TThread)
@@ -69,7 +90,7 @@ type
     procedure WriteUI8(val:byte);
     procedure WriteUI16(val:word);
     procedure WriteUI32(val:cardinal);
-    procedure WriteString(val:string);
+    procedure WriteString(val:widestring);
     procedure WriteParameter(val:TParameter);
     procedure WriteStrings(val:TStrings);
     procedure CheckCid();
@@ -95,7 +116,6 @@ type
     EventParamNames : array of Variant);
 
   public
-   var events:TStrings;
 
   end;
   TBuf = array[0..255] of byte;
@@ -105,11 +125,33 @@ type
 var
   frmMain: TfrmMain;
   t: TPipeThread;
+  events:TEventList;
+  logfile:TextFile;
 
 
 implementation
 
 {$R *.dfm}
+
+
+
+function myvartostr(v:Variant):widestring;
+begin
+  DecimalSeparator:='.';
+  case VarType(v) of
+    varDouble,varSingle,varCurrency: Result:=FloatToStr(v);
+    varDispatch,varUnknown: Result:='-';
+    else Result:=v;
+  end;
+end;
+
+procedure log(s:string);
+begin
+  if not dolog then
+   exit;
+  WriteLn(logfile, s);
+  Flush(logfile);
+end;
 
 
 
@@ -236,7 +278,7 @@ begin
 end;
 
 
-procedure TPipeThread.WriteString(val: string);
+procedure TPipeThread.WriteString(val: widestring);
  var a:TBuf;
  len:integer;
  s: UTF8String;
@@ -258,8 +300,17 @@ begin
   end;
 end;
 
+
+
+
 procedure TfrmMain.StartThread();
 begin
+  if dolog then
+  begin
+    AssignFile(logfile, 'log.txt');
+    ReWrite(logfile);
+  end;
+  events:=TEventList.Create;
   t := TPipeThread.Create(True);
   t.Resume;
 end;
@@ -349,7 +400,7 @@ begin
     hosts[val].progId := '';
     if FRegistry.OpenKey('\CLSID\' + self.newguid + '\ProgID', False) then
     begin
-      hosts[val].progId := FRegistry.ReadString('');
+      hosts[val].progId := Widestring(FRegistry.ReadString(''));
     end;
     WriteString(hosts[val].guid);
     WriteString(hosts[val].progId);
@@ -538,30 +589,34 @@ var cnt:integer;
   if cnt>65535 then
    cnt := 65535;
   WriteUI16(cnt);
+  log('sending events count:'+inttostr(cnt));
   for i := 0 to cnt - 1 do
    begin
-     ev:=(events.Objects[0] as TAEvent);
+     ev:=events.pop();
+     log(inttostr(i)+') event:'+ev.EventName);
      WriteUI32(ev.cid);
      WriteString(ev.EventName);
      WriteUI16(Length(ev.EventParams));
+     log(' param len:'+inttostr(Length(ev.EventParams)));
      for j := 0 to Length(ev.EventParams) - 1 do
        begin
+         log(' write param '+inttostr(j));
          propVal:=ev.EventParams[j];
          propTypeStr := VarTypeAsText(VarType(propVal));
-         if VarType(propVal) = varDispatch then
-           propValStr := '-'
-         else if VarType(propVal) = varUnknown then
-           propValStr := '-'
-         else
-        	  propValStr := VarToWideStr(propVal);
          WriteString(propTypeStr);
-         WriteString(propValStr);
-         WriteString(ev.EventParamNames[j]);
-         WriteString(ev.EventParamTypesStr[j]);
-       end;
-     events.Delete(0);
-   end;
+         WriteString(myvartostr(propVal));
 
+         if length(ev.EventParamNames)>j then
+           WriteString(ev.EventParamNames[j])
+         else
+           WriteString('Param'+inttostr(j));
+         if length(ev.EventParamTypesStr)>j then
+           WriteString(ev.EventParamTypesStr[j])
+         else
+           WriteString(propTypeStr);
+       end;
+     ev.Free;
+   end;
 end;
 
 
@@ -625,7 +680,6 @@ const
   CMD_GET_PROPERTY_TYPE = 15;
 
 begin
-  events := TStringList.Create;
   try
     pipename := PAnsiChar('\\.\\pipe\activex_server_' + ParamStr(1));
     begin
@@ -757,7 +811,7 @@ begin
             end;
 
             CMD_LIST_METHODS:
-            begin
+            begin                       
               cid := ReadUI32();
               Synchronize(CheckCid);
               if cid<>-1 then
@@ -803,14 +857,8 @@ begin
                   begin
                     propVal := hosts[cid].host.PropertyValue[propName];
                     propTypeStr := VarTypeAsText(VarType(propVal));
-                    if VarType(propVal) = varDispatch then
-                     propValStr := '-'
-                    else if VarType(propVal) = varUnknown then
-                      propValStr := '-'
-                    else
-                  	  propValStr := VarToWideStr(propVal);
                     WriteString(propTypeStr);
-                    WriteString(propValStr);
+                    WriteString(myvartostr(propVal));
                   end;
               end;
             end;
@@ -873,7 +921,8 @@ var ev:TAEvent;
 i:integer;
 begin
   if Assigned(t) then
-   begin                               
+   begin
+     log('executed '+EventName);                    
      ev:=TAEvent.Create;
      ev.cid := (Sender as TComponent).Tag;
      ev.EventName := EventName;
@@ -889,10 +938,62 @@ begin
          ev.EventParamTypesStr[i] := EventParamTypesStr[i];
      for i := 0 to length(EventParamNames) - 1 do
          ev.EventParamNames[i] := EventParamNames[i];
-
-//     if t.events.Count<50 then
-       t.events.AddObject('',ev);
+       events.Add(ev);
    end;
+end;
+
+
+destructor TAEvent.Destroy;
+begin
+
+end;
+
+constructor TEventList.Create();
+begin
+  inherited Create;
+  start:=0;
+  _count:=0;
+  InitializeCriticalSection(FLock);
+end;
+
+function TEventList.Pop():TAEvent;
+begin
+  EnterCriticalSection(FLock);
+  try
+  if _count=0 then
+  begin
+    Result:=nil;
+    Exit;
+  end;
+
+  Result := _events[start];
+  _events[start]:=nil;
+  start:=(start+1)mod MAX_EVENT_COUNT;
+  _count:=_count-1;
+  finally
+    LeaveCriticalSection(FLock);
+  end;
+end;
+procedure TEventList.Add(e:TAEvent);
+begin
+  EnterCriticalSection(FLock);
+  _events[(start+_count)mod MAX_EVENT_COUNT]:=e;
+  if _count<MAX_EVENT_COUNT then
+    _count:=_count+1;
+
+  LeaveCriticalSection(FLock);
+end;
+
+destructor TEventList.Destroy;
+begin
+  DeleteCriticalSection(FLock);
+end;
+
+function TEventList.GetCount():integer;
+begin
+   EnterCriticalSection(FLock);
+   Result:=_count;
+   LeaveCriticalSection(FLock);
 end;
 
 end.

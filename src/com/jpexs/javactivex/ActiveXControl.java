@@ -110,12 +110,8 @@ public class ActiveXControl extends Panel {
         if (exeStream == null) {
             throw new ActiveXException("Cannot load javactivex server stream");
         }
-        File exeFile = null;
-        try {
-            exeFile = File.createTempFile("javactivex_server", ".exe");
-        } catch (IOException ex) {
-            throw new ActiveXException("Cannot create temp file");
-        }
+        
+        File exeFile = new File(System.getProperty("java.io.tmpdir")+File.separator+"javactivex_"+System.currentTimeMillis()+".exe");
         final int BUFSIZE = 1024;
         byte buf[] = new byte[BUFSIZE];
         try (FileOutputStream fos = new FileOutputStream(exeFile)) {
@@ -151,14 +147,13 @@ public class ActiveXControl extends Panel {
 
             @Override
             public void run() {
-                try {
-                    echo();
-                } catch (Exception ex) {
-                    if (syncTimer != null) {
-                        syncTimer.cancel();
-                        syncTimer = null;
-                    }
-                }
+                echo();
+                /*
+                 if (syncTimer != null) {
+                 syncTimer.cancel();
+                 syncTimer = null;
+                 }
+                 */
             }
         }, ECHO_INTERVAL, ECHO_INTERVAL);
 
@@ -340,81 +335,86 @@ public class ActiveXControl extends Panel {
     }
 
     private static Object strToValue(String type, String value) {
-        switch (type) {
-            case "Empty":
-                return null;
-            case "Null":
-                return null;
-            case "Smallint":
-                if (value.trim().equals("")) {
+        try {
+            switch (type) {
+                case "Empty":
                     return null;
-                }
-                return Integer.parseInt(value);
-            case "Integer":
-                if (value.trim().equals("")) {
+                case "Null":
                     return null;
-                }
-                return Integer.parseInt(value);
-            case "Single":
-                if (value.trim().equals("")) {
+                case "Smallint":
+                    if (value.trim().equals("")) {
+                        return null;
+                    }
+                    return Integer.parseInt(value);
+                case "Integer":
+                    if (value.trim().equals("")) {
+                        return null;
+                    }
+                    return Integer.parseInt(value);
+                case "Single":
+                    if (value.trim().equals("")) {
+                        return null;
+                    }
+                    return Float.parseFloat(value);
+                case "Double":
+                    if (value.trim().equals("")) {
+                        return null;
+                    }
+                    return Double.parseDouble(value);
+                case "Currency":
+                    if (value.trim().equals("")) {
+                        return null;
+                    }
+                    return new BigDecimal(value);
+                case "Date":
+                    return null; //TODO
+                case "OleStr":
+                    return value;
+                case "Dispatch":
+                    return null; //Unsupported
+                case "Error":
+                    return null; //Unsupported
+                case "Boolean":
+                    return (Boolean) value.equals("True");
+                case "Variant":
+                    return value; //?
+                case "Unknown":
+                    return null; //Unsupported
+                case "Decimal":
+                    return new BigDecimal(value);
+                case "$0F":
                     return null;
-                }
-                return Float.parseFloat(value);
-            case "Double":
-                if (value.trim().equals("")) {
+                case "ShortInt":
+                    if (value.trim().equals("")) {
+                        return null;
+                    }
+                    return Short.parseShort(value);
+                case "Byte":
+                    if (value.trim().equals("")) {
+                        return null;
+                    }
+                    return Integer.parseInt(value);
+                case "Word":
+                    if (value.trim().equals("")) {
+                        return null;
+                    }
+                    return Integer.parseInt(value);
+                case "LongWord":
+                    if (value.trim().equals("")) {
+                        return null;
+                    }
+                    return Long.parseLong(value);
+                case "Int64":
+                    if (value.trim().equals("")) {
+                        return null;
+                    }
+                    return new BigInteger(value);
+                default:
                     return null;
-                }
-                return Double.parseDouble(value);
-            case "Currency":
-                if (value.trim().equals("")) {
-                    return null;
-                }
-                return new BigDecimal(value);
-            case "Date":
-                return null; //TODO
-            case "OleStr":
-                return value;
-            case "Dispatch":
-                return null; //Unsupported
-            case "Error":
-                return null; //Unsupported
-            case "Boolean":
-                return (Boolean) value.equals("True");
-            case "Variant":
-                return value; //?
-            case "Unknown":
-                return null; //Unsupported
-            case "Decimal":
-                return new BigDecimal(value);
-            case "$0F":
-                return null;
-            case "ShortInt":
-                if (value.trim().equals("")) {
-                    return null;
-                }
-                return Short.parseShort(value);
-            case "Byte":
-                if (value.trim().equals("")) {
-                    return null;
-                }
-                return Integer.parseInt(value);
-            case "Word":
-                if (value.trim().equals("")) {
-                    return null;
-                }
-                return Integer.parseInt(value);
-            case "LongWord":
-                if (value.trim().equals("")) {
-                    return null;
-                }
-                return Long.parseLong(value);
-            case "Int64":
-                if (value.trim().equals("")) {
-                    return null;
-                }
-                return new BigInteger(value);
-            default:
-                return null;
+            }
+        } catch (NumberFormatException nfe) {
+            System.err.println("WARNING: Invalid " + type + " value: " + value);
+            return null;
         }
     }
 

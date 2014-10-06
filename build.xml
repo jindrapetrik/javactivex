@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project name="JavactiveX" default="default" basedir=".">
     <description>Builds, tests, and runs the project JavactiveX.</description>
-                  
-    <import file="nbproject/build-impl.xml"/>
     
     <target name="run" depends="jar">
         <java jar="${dist.jar}" fork="true">            
             <arg line="${application.args}" />
         </java>
-    </target>    
+    </target>              
+    <import file="nbproject/build-impl.xml"/>
+            
     
 </project>

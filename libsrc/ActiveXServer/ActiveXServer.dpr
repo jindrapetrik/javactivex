@@ -7,7 +7,8 @@ uses
   TypeLibViewer in 'TypeLibViewer.pas',
   Windows,
   dialogs,
-  RegAxCtrlList in 'RegAxCtrlList.pas';
+  RegAxCtrlList in 'RegAxCtrlList.pas',
+  UThreadStringList in 'UThreadStringList.pas';
 
 {$R *.res}
 
