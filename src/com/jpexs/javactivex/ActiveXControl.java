@@ -38,7 +38,7 @@ import java.util.WeakHashMap;
  *
  * @author JPEXS
  */
-public class ActiveXControl extends Panel {
+public class ActiveXControl {
 
     private static WinNT.HANDLE pipe;
     private static WinNT.HANDLE process;
