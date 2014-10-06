@@ -4,12 +4,12 @@ package com.jpexs.javactivex.jna;
  *
  * @author JPEXS
  */
-import com.sun.jna.Memory;
-import com.sun.jna.Native;
-import com.sun.jna.Pointer;
 import com.jpexs.javactivex.jna.WinNT.EVENTLOGRECORD;
 import com.jpexs.javactivex.jna.WinReg.HKEY;
 import com.jpexs.javactivex.jna.WinReg.HKEYByReference;
+import com.sun.jna.Memory;
+import com.sun.jna.Native;
+import com.sun.jna.Pointer;
 import com.sun.jna.ptr.IntByReference;
 import java.util.ArrayList;
 import java.util.Map;

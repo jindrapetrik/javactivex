@@ -1,12 +1,12 @@
 package com.jpexs.javactivex.jna;
 
-import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
-import com.sun.jna.WString;
 import com.jpexs.javactivex.jna.WinDef.HINSTANCE;
 import com.jpexs.javactivex.jna.WinDef.HWND;
 import com.jpexs.javactivex.jna.WinNT.HANDLE;
 import com.jpexs.javactivex.jna.WinReg.HKEY;
+import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
+import com.sun.jna.WString;
 import java.util.Arrays;
 import java.util.List;
 

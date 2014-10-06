@@ -12,8 +12,8 @@
  */
 package com.jpexs.javactivex.jna;
 
-import com.sun.jna.Pointer;
 import com.jpexs.javactivex.jna.WinNT.HANDLE;
+import com.sun.jna.Pointer;
 import com.sun.jna.ptr.ByReference;
 import com.sun.jna.win32.StdCallLibrary;
 

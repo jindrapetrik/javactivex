@@ -1,8 +1,5 @@
 package com.jpexs.javactivex.jna;
 
-import com.sun.jna.Native;
-import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
 import com.jpexs.javactivex.jna.WinDef.DWORD;
 import com.jpexs.javactivex.jna.WinDef.HBITMAP;
 import com.jpexs.javactivex.jna.WinDef.HDC;
@@ -11,6 +8,9 @@ import com.jpexs.javactivex.jna.WinGDI.BITMAPINFO;
 import com.jpexs.javactivex.jna.WinGDI.BITMAPINFOHEADER;
 import com.jpexs.javactivex.jna.WinGDI.RGNDATA;
 import com.jpexs.javactivex.jna.WinNT.HANDLE;
+import com.sun.jna.Native;
+import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
 import com.sun.jna.ptr.PointerByReference;
 import com.sun.jna.win32.StdCallLibrary;
 import com.sun.jna.win32.W32APIOptions;

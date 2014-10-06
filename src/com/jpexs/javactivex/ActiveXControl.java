@@ -9,16 +9,16 @@ import com.sun.jna.Native;
 import com.sun.jna.Platform;
 import com.sun.jna.WString;
 import com.sun.jna.ptr.IntByReference;
-import java.awt.AWTEvent;
-import java.awt.Color;
 import java.awt.Event;
 import java.awt.Panel;
 import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
 import java.awt.event.KeyEvent;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionListener;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -76,6 +76,8 @@ public class ActiveXControl extends Panel {
 
     private Panel panel;
 
+    private boolean disposed = false;
+
     private static Map<Long, ActiveXControl> instances = new WeakHashMap<Long, ActiveXControl>();
 
     static {
@@ -103,7 +105,30 @@ public class ActiveXControl extends Panel {
         if (!appDir.endsWith("\\")) {
             appDir += "\\";
         }
-        String exePath = appDir + "lib\\ActiveXServer.exe";
+
+        InputStream exeStream = ActiveXControl.class.getClassLoader().getResourceAsStream("com/jpexs/javactivex/server/ActiveXServer.exe");
+        if (exeStream == null) {
+            throw new ActiveXException("Cannot load javactivex server stream");
+        }
+        File exeFile = null;
+        try {
+            exeFile = File.createTempFile("javactivex_server", ".exe");
+        } catch (IOException ex) {
+            throw new ActiveXException("Cannot create temp file");
+        }
+        final int BUFSIZE = 1024;
+        byte buf[] = new byte[BUFSIZE];
+        try (FileOutputStream fos = new FileOutputStream(exeFile)) {
+            int cnt;
+            while ((cnt = exeStream.read(buf)) > 0) {
+                fos.write(buf, 0, cnt);
+            }
+        } catch (IOException ex) {
+            throw new ActiveXException("Cannot load JavactiveX server");
+        }
+
+        exeFile.deleteOnExit();
+        String exePath = exeFile.getAbsolutePath();
 
         String instName = "" + System.currentTimeMillis();
 
@@ -463,8 +488,6 @@ public class ActiveXControl extends Panel {
                     return optionalParameterCount;
                 }
 
-                
-                
                 private String typeToStr(Class c) {
                     if (c == null) {
                         return "Object";
@@ -712,15 +735,14 @@ public class ActiveXControl extends Panel {
         };
     }
 
-    
-    private static int shiftStateToModifiers(int shiftState){
-         boolean shiftDown = (shiftState & 1) == 1;
-                    boolean ctrlDown = (shiftState & 2) == 2;
-                    boolean altDown = (shiftState & 4) == 4;
-                    int modifiers = (shiftDown ? Event.SHIFT_MASK : 0) + (ctrlDown ? Event.CTRL_MASK : 0) + (altDown ? Event.ALT_MASK : 0);
-                    return modifiers;
+    private static int shiftStateToModifiers(int shiftState) {
+        boolean shiftDown = (shiftState & 1) == 1;
+        boolean ctrlDown = (shiftState & 2) == 2;
+        boolean altDown = (shiftState & 4) == 4;
+        int modifiers = (shiftDown ? Event.SHIFT_MASK : 0) + (ctrlDown ? Event.CTRL_MASK : 0) + (altDown ? Event.ALT_MASK : 0);
+        return modifiers;
     }
-    
+
     private void attach() {
         synchronized (AXLOCK) {
             writeComponentCommand(CMD_SET_PARENT);
@@ -735,7 +757,7 @@ public class ActiveXControl extends Panel {
                     int fY = (Integer) ev.args.get("fX");
                     int button = (Integer) ev.args.get("nButton");
                     int shiftState = (Integer) ev.args.get("nShiftState");
-                   
+
                     boolean buttonLeft = (button & 1) == 1;
                     boolean buttonRight = (button & 2) == 2;
                     boolean buttonMiddle = (button & 4) == 4;
@@ -764,7 +786,6 @@ public class ActiveXControl extends Panel {
                             break;
                     }
 
-                    
                     panel.dispatchEvent(new MouseEvent(panel, eventType, System.currentTimeMillis(), shiftStateToModifiers(shiftState), fX, fY, clickCount, false, oneButton));
                 }
             };
@@ -774,27 +795,27 @@ public class ActiveXControl extends Panel {
             addEventListener("MouseDown", mouseHandler);
             addEventListener("Click", mouseHandler);
             addEventListener("DoubleClick", mouseHandler);
-            
+
             ActiveXEventListener keyHandler = new ActiveXEventListener() {
 
                 @Override
                 public void onEvent(ActiveXEvent ev) {
                     int nKeyCode = 0;
-                    int nShiftState = 0;               
+                    int nShiftState = 0;
                     int eventType = 0;
                     int nKeyAscii = 0;
-                    
-                    switch(ev.name){
+
+                    switch (ev.name) {
                         case "KeyDown":
-                        case "KeyUp":                            
-                            nKeyCode = (Integer)ev.args.get("nKeyCode");
-                            nShiftState = (Integer)ev.args.get("nShiftState");    
+                        case "KeyUp":
+                            nKeyCode = (Integer) ev.args.get("nKeyCode");
+                            nShiftState = (Integer) ev.args.get("nShiftState");
                             break;
                         case "KeyPress":
-                            nKeyAscii = (Integer)ev.args.get("nKeyAscii");
+                            nKeyAscii = (Integer) ev.args.get("nKeyAscii");
                             break;
                     }
-                    switch(ev.name){
+                    switch (ev.name) {
                         case "KeyDown":
                             eventType = KeyEvent.KEY_PRESSED;
                             break;
@@ -805,7 +826,7 @@ public class ActiveXControl extends Panel {
                             eventType = KeyEvent.KEY_TYPED;
                             break;
                     }
-                    panel.dispatchEvent(new KeyEvent(panel, eventType, System.currentTimeMillis(), shiftStateToModifiers(nShiftState), nKeyCode, (char)nKeyAscii));
+                    panel.dispatchEvent(new KeyEvent(panel, eventType, System.currentTimeMillis(), shiftStateToModifiers(nShiftState), nKeyCode, (char) nKeyAscii));
                 }
             };
             addEventListener("KeyUp", keyHandler);
@@ -1074,13 +1095,13 @@ public class ActiveXControl extends Panel {
         return s.substring(0, 1).toUpperCase() + s.substring(1);
     }
 
-    
-    private static String typeToStr(Class c){
+    private static String typeToStr(Class c) {
         if (c == null) {
-                        return "Object";
-                    }
-                    return c.getSimpleName();
+            return "Object";
+        }
+        return c.getSimpleName();
     }
+
     /**
      * Generates Java Definition from this class
      *
@@ -1168,12 +1189,12 @@ public class ActiveXControl extends Panel {
 
         Set<String> methodNames = getMethodNames();
 
-        for (String metName : methodNames) {            
+        for (String metName : methodNames) {
             ActiveXMethodInfo m = getMethod(metName);
             String doc = m.getDoc();
 
             int optcnt = m.getOptionalArgumentCount();
-            for(int k=0;k<=optcnt;k++){
+            for (int k = 0; k <= optcnt; k++) {
                 sb.append(nl);
                 sb.append("\t/**").append(nl);
                 if (!doc.isEmpty()) {
@@ -1186,7 +1207,7 @@ public class ActiveXControl extends Panel {
                 List<String> argnames = m.getArgumentNames();
                 List<Class> argtypes = m.getArgumentTypes();
                 List<String> argtypesstr = m.getArgumentTypesStr();
-                for (int i = 0; i < argnames.size()-k; i++) {
+                for (int i = 0; i < argnames.size() - k; i++) {
                     sb.append("\t * @param ").append(argnames.get(i));
                     if (argtypes.get(i) == null) {
                         sb.append(" (").append(argtypesstr.get(i)).append(") ");
@@ -1204,16 +1225,16 @@ public class ActiveXControl extends Panel {
                 }
                 sb.append("\t */").append(nl);
                 sb.append("\tpublic ");
-                
+
                 sb.append(typeToStr(m.getReturnType())).append(" ").append(m.getName()).append("(");
-                for (int i = 0; i < argnames.size()-k; i++) {
+                for (int i = 0; i < argnames.size() - k; i++) {
                     if (i > 0) {
                         sb.append(", ");
                     }
                     sb.append(typeToStr(argtypes.get(i))).append(" ").append(argnames.get(i));
                 }
                 sb.append(")");
-                
+
                 sb.append(" {").append(nl);
                 sb.append("\t\t");
 
@@ -1228,7 +1249,7 @@ public class ActiveXControl extends Panel {
                     }
                 }
                 sb.append("callMethod(\"").append(metName).append("\"");
-                for (int i=0;i<argnames.size()-k;i++) {
+                for (int i = 0; i < argnames.size() - k; i++) {
                     sb.append(", ");
                     sb.append(argnames.get(i));
                 }
@@ -1314,6 +1335,24 @@ public class ActiveXControl extends Panel {
             }
         }
         return ret;
+    }
+
+    @Override
+    protected void finalize() throws Throwable {
+        dispose();
+        super.finalize();
+    }
+
+    /**
+     * Destroys the component
+     */
+    public void dispose() {
+        if (!disposed) {
+            synchronized (AXLOCK) {
+                writeComponentCommand(CMD_DESTROY);
+            }
+            disposed = true;
+        }
     }
 
 }

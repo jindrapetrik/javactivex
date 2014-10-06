@@ -12,11 +12,11 @@
  */
 package com.jpexs.javactivex.jna;
 
+import com.jpexs.javactivex.jna.BaseTSD.LONG_PTR;
+import com.jpexs.javactivex.jna.WinNT.HANDLE;
 import com.sun.jna.IntegerType;
 import com.sun.jna.Pointer;
 import com.sun.jna.Structure;
-import com.jpexs.javactivex.jna.BaseTSD.LONG_PTR;
-import com.jpexs.javactivex.jna.WinNT.HANDLE;
 import com.sun.jna.ptr.ByReference;
 import com.sun.jna.win32.StdCallLibrary;
 import java.awt.Rectangle;

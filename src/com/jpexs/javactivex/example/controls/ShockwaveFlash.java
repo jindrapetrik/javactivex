@@ -2,8 +2,8 @@ package com.jpexs.javactivex.example.controls;
 
 
 import com.jpexs.javactivex.ActiveXControl;
-import java.io.File;
 import java.awt.Panel;
+import java.io.File;
 
 /**
  * Shockwave Flash

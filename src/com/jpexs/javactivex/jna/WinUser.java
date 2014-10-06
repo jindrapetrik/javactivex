@@ -12,11 +12,6 @@
  */
 package com.jpexs.javactivex.jna;
 
-import com.sun.jna.Callback;
-import com.sun.jna.Pointer;
-import com.sun.jna.Structure;
-import com.sun.jna.Union;
-import com.sun.jna.WString;
 import com.jpexs.javactivex.jna.BaseTSD.ULONG_PTR;
 import com.jpexs.javactivex.jna.WinDef.HBRUSH;
 import com.jpexs.javactivex.jna.WinDef.HCURSOR;
@@ -27,6 +22,11 @@ import com.jpexs.javactivex.jna.WinDef.LPARAM;
 import com.jpexs.javactivex.jna.WinDef.LRESULT;
 import com.jpexs.javactivex.jna.WinDef.WPARAM;
 import com.jpexs.javactivex.jna.WinNT.HANDLE;
+import com.sun.jna.Callback;
+import com.sun.jna.Pointer;
+import com.sun.jna.Structure;
+import com.sun.jna.Union;
+import com.sun.jna.WString;
 import com.sun.jna.win32.StdCallLibrary;
 import java.util.Arrays;
 import java.util.List;

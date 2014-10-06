@@ -1,7 +1,7 @@
 package com.jpexs.javactivex.jna;
 
-import com.sun.jna.Structure;
 import com.jpexs.javactivex.jna.WinDef.RECT;
+import com.sun.jna.Structure;
 import com.sun.jna.win32.StdCallLibrary;
 import java.util.Arrays;
 import java.util.List;

@@ -1,8 +1,8 @@
 package com.jpexs.javactivex.jna;
 
-import com.sun.jna.Structure;
 import com.jpexs.javactivex.jna.WinDef.DWORD;
 import com.jpexs.javactivex.jna.WinDef.HICON;
+import com.sun.jna.Structure;
 import java.util.Arrays;
 import java.util.List;
 

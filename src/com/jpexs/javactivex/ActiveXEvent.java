@@ -6,7 +6,6 @@
 
 package com.jpexs.javactivex;
 
-import java.util.List;
 import java.util.Map;
 
 /**
