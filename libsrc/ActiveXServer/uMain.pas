@@ -4,7 +4,7 @@ interface
 
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
-  Dialogs,ActiveXHost, ExtCtrls, TypeLibViewer,Registry, RegAxCtrlList;
+  Dialogs,ActiveXHost, ExtCtrls, TypeLibViewer,Registry, RegAxCtrlList,ActiveX,ComObj,MyComObj;
 
 const
   MAX_EVENT_COUNT = 1000;
@@ -24,7 +24,10 @@ type
   end;
 
   THostInstance = record
-    host:TActiveXHost;
+    isGraphical : Boolean;
+    host:IComObj;
+    hoststandard:TComObj;
+    hostgraphic:TActiveXHost;
     guid : widestring;
     panel:TPanel;
     hwnd:HWND;
@@ -68,6 +71,7 @@ type
   protected
     pipe:cardinal;
     newguid:WideString;
+    newbaseguid:WideString;
     newhwnd:HWND;
     nwidth:integer;
     nheight:integer;
@@ -75,9 +79,11 @@ type
     propName:WideString;
     newfilename :WideString;
     methodName:WideString;
-    propValStr:WideString;
+    propVal:OleVariant;
     hosts : Array of THostInstance;
+    ttype:TTypeInformation;
 
+    types: TStringList;
     procedure Execute; override;
     procedure GetMethodParams;
     function ReadUI8():byte;
@@ -94,6 +100,12 @@ type
     procedure WriteParameter(val:TParameter);
     procedure WriteStrings(val:TStrings);
     procedure CheckCid();
+    procedure WriteOK();
+    procedure WriteFail(cause:string); overload;
+    procedure WriteFail(cause:Exception); overload;
+    procedure WriteValue(v:OleVariant;baseguid:TGUID;guid:TGUID);
+
+    function ReadValue(var ref:Boolean;var baseguid:TGUID;var guid:TGUID):Variant;
 
     procedure ResizeControl();
     procedure CreateControl();
@@ -115,6 +127,8 @@ type
     EventParamTypesStr : array of Variant;
     EventParamNames : array of Variant);
 
+    function FindType(baseguid:widestring;guid:widestring):TTypeInformation;
+
   public
 
   end;
@@ -126,8 +140,10 @@ var
   frmMain: TfrmMain;
   t: TPipeThread;
   events:TEventList;
+
   logfile:TextFile;
 
+  procedure log(s:string);
 
 implementation
 
@@ -221,6 +237,32 @@ begin
   Result:=buf[0];
 end;
 
+function TPipeThread.ReadValue(var ref:Boolean;var baseguid:TGUID;var guid:TGUID): Variant;
+var ecid:cardinal;
+t:widestring;
+//vd:TVarData;
+begin
+  t := ReadString();
+      ref:=false;
+      if t='Reference' then
+       begin
+         ref:=true;
+         t := ReadString();
+       end;
+      if t='Object' then
+       begin
+         ecid := ReadUI32;
+         baseguid := StringToGUID(ReadString());
+         guid := StringToGUID(ReadString());
+         Result := hosts[ecid].host.GetObj;
+       end
+       else
+       begin
+         Result := ReadString();
+       end;
+
+end;
+
 function TPipeThread.ReadUI16():word;
 var buf:TBuf;
 begin
@@ -304,10 +346,16 @@ end;
 
 
 procedure TfrmMain.StartThread();
+var i:integer;
 begin
   if dolog then
   begin
-    AssignFile(logfile, 'log.txt');
+
+    i:=0;
+    while FileExists('log'+inttostr(i)+'.txt') do
+     i:=i+1;
+
+    AssignFile(logfile, 'log'+inttostr(i)+'.txt');
     ReWrite(logfile);
   end;
   events:=TEventList.Create;
@@ -345,9 +393,26 @@ procedure TPipeThread.CreateControl();
 var val:integer;
  FRegistry:TRegistry;
  ok:boolean;
+ FOleObject: IOleObject;
+// co:TComObj;
 begin
+
+
+
   val := Length(hosts);
   SetLength(hosts,val+1);
+
+  hosts[val].isGraphical:=false;
+   if Succeeded(CoCreateInstance(StringToGuid(self.newguid),nil,CLSCTX_INPROC_SERVER or CLSCTX_LOCAL_SERVER,IOleObject,FOleObject)) then
+   begin
+      hosts[val].isGraphical:=true;
+      FOleObject := nil;
+   end;
+
+
+
+  if hosts[val].isGraphical then
+  begin
   hosts[val].panel := TPanel.Create(frmMain);
   hosts[val].panel.BevelOuter := bvNone;
   hosts[val].panel.Parent:=frmMain;
@@ -359,39 +424,67 @@ begin
 
   if newfilename='' then
   begin
-    hosts[val].host := TActiveXHost.CreateActiveX(hosts[val].panel,	StringToGuid(self.newguid));
+    hosts[val].hostgraphic := TActiveXHost.CreateActiveX(hosts[val].panel,	StringToGuid(self.newguid));
+    hosts[val].guid := self.newguid;
+    hosts[val].host:=hosts[val].hostgraphic;
+    ok := true;
+  end
+  else
+  begin
+    hosts[val].hostgraphic := TActiveXHost.CreateActiveX(hosts[val].panel,	newfilename, StringToGuid(self.newguid));
+    hosts[val].guid := GUIDToString(hosts[val].host.ClassID);
+    hosts[val].host:=hosts[val].hostgraphic;
+    ok := true;
+  end;
+  except
+    on e:Exception do WriteFail(e);
+  end;
+  end
+  else
+  begin
+    try
+     if newfilename='' then
+  begin
+    //co:=;
+    hosts[val].hoststandard := TComObj.Create(StringToGuid(self.newbaseguid),StringToGuid(self.newguid));
+    hosts[val].host:=hosts[val].hoststandard;
     hosts[val].guid := self.newguid;
     ok := true;
   end
   else
   begin
-    hosts[val].host := TActiveXHost.CreateActiveX(hosts[val].panel,	newfilename, StringToGuid(self.newguid));
+    hosts[val].hoststandard:=TComObj.Create(newfilename, StringToGuid(self.newbaseguid),StringToGuid(self.newguid));;
+    hosts[val].host:=hosts[val].hoststandard;
     hosts[val].guid := GUIDToString(hosts[val].host.ClassID);
     ok := true;
   end;
-  except
-    on e:Exception do
-     begin
-       WriteString('Error');
-       WriteString(e.Message);
-     end;
+    except
+      on e:Exception do
+      begin
+        WriteFail(e);
+        ok:=false;
+      end;
+    end;
+
   end;
   if ok then
   begin
-    WriteString('Boolean');
-    WriteString('True');
+    writeOK;
+
+
     hosts[val].docString := hosts[val].host.DocString;
-
-    hosts[val].host.Parent := hosts[val].panel;
-    hosts[val].host.Left := 0;
-    hosts[val].host.Top := 0;
-    hosts[val].host.Width := 500;
-    hosts[val].host.Height := 500;
-    hosts[val].host.Tag := val;
-    hosts[val].width:=500;
-    hosts[val].height:=500;
-
-    hosts[val].host.OnEvent := ActiveXEvent;
+    if hosts[val].isGraphical then
+    begin
+     hosts[val].hostgraphic.Parent := hosts[val].panel;
+     hosts[val].hostgraphic.Left := 0;
+     hosts[val].hostgraphic.Top := 0;
+     hosts[val].hostgraphic.Width := 500;
+     hosts[val].hostgraphic.Height := 500;
+     hosts[val].hostgraphic.Tag := val;
+     hosts[val].width:=500;
+     hosts[val].height:=500;
+     hosts[val].hostgraphic.OnEvent := ActiveXEvent;
+    end;
     hosts[val].active := True;
     WriteUI32(val);
 
@@ -417,15 +510,22 @@ end;
 
 procedure TPipeThread.SetParentWnd;
 begin
-  hosts[cid].hwnd := newhwnd;
-  Windows.SetParent(hosts[cid].panel.Handle,hosts[cid].hwnd);
+  if hosts[cid].isGraphical then
+  begin
+    hosts[cid].hwnd := newhwnd;
+    Windows.SetParent(hosts[cid].panel.Handle,hosts[cid].hwnd);
+  end;
 end;
 
 
 procedure TPipeThread.DestroyControl;
 begin
-  FreeAndNil(hosts[cid].host);
-  FreeAndNil(hosts[cid].panel);
+  if assigned(hosts[cid].host) then
+   FreeAndNil(hosts[cid].host);
+   if assigned(hosts[cid].hostgraphic) then
+   FreeAndNil(hosts[cid].hostgraphic);
+  if(assigned(hosts[cid].panel)) then
+   FreeAndNil(hosts[cid].panel);
   hosts[cid].active := False;
 end;
 
@@ -433,12 +533,16 @@ procedure TPipeThread.ResizeControl;
 begin
   hosts[cid].width := nwidth;
   hosts[cid].height := nheight;
+
+  if hosts[cid].isGraphical then
+  begin
   hosts[cid].panel.Top:=0;
   hosts[cid].panel.Left:=0;
   hosts[cid].panel.Width:=nwidth;
   hosts[cid].panel.Height:=nheight;
-  hosts[cid].host.Width := nwidth;
-  hosts[cid].host.Height := nheight;
+  hosts[cid].hostgraphic.Width := nwidth;
+  hosts[cid].hostgraphic.Height := nheight;
+  end;
 end;
 
 procedure TPipeThread.DestroyAll;
@@ -449,6 +553,7 @@ begin
      if hosts[i].active then
       begin
         FreeAndNil(hosts[i].host);
+        FreeAndNil(hosts[i].hostgraphic);
         FreeAndNil(hosts[i].panel);
         hosts[i].active := False;
       end;
@@ -461,21 +566,15 @@ procedure TPipeThread.SetProperty;
 begin
   if hosts[cid].host.Properties.IndexOf(propName)=-1 then
   begin
-      WriteString('Error');
-      WriteString('Property does not exist');
+      WriteFail('Property does not exist');
   end
   else
   begin
     try
-      hosts[cid].host.PropertyValue[propName] := propValStr;
-      WriteString('Boolean');
-      WriteString('True');
+      hosts[cid].host.PropertyValue[propName] := propVal;
+      writeOK;
     except
-      on e:Exception do
-        begin
-          WriteString('Error');
-          WriteString(e.Message);
-        end;
+      on e:Exception do WriteFail(e);
     end;
   end;
 end;
@@ -491,17 +590,16 @@ end;
 procedure TPipeThread.GetMethodParams;
 var f:TFunction;
 i:integer;
+it:TTypeInformation;
 begin
-  f:=hosts[cid].host.FindFunction(methodName);
+  f:=ttype.FindFunction(methodName,it);
   if f = nil then
   begin
-    WriteString('Error');
-    WriteString('Method not found');
+    WriteFail('Method not found');
   end
   else
   begin
-    WriteString('Boolean');
-    WriteString('True');
+    writeOK;
   end;
   WriteString(f.Name);
   WriteParameter(f.ReturnType);
@@ -516,17 +614,20 @@ end;
 
 procedure TPipeThread.GetMethods;
 begin
-  WriteStrings(hosts[cid].host.Methods);
+  WriteOK;
+  WriteStrings(ttype.MethodNames);
 end;
 
 procedure TPipeThread.GetEvents;
 begin
-  WriteStrings(hosts[cid].host.Events);
+  WriteOK;
+  WriteStrings(ttype.EventNames);
 end;
 
 procedure TPipeThread.GetProperties;
 begin
-  WriteStrings(hosts[cid].host.Properties);
+  WriteOK;
+  WriteStrings(ttype.PropertyNames);
 end;
 
 procedure TPipeThread.CheckCid;
@@ -534,26 +635,22 @@ var r:Boolean;
 begin
   if cid<0 then
   begin
-    WriteString('Error');
-    WriteString('Component id must not be negative');
+    WriteFail('Component id must not be negative');
     r:=False;
   end
   else if cid>=length(hosts) then
    begin
-     WriteString('Error');
-     WriteString('Component id is not yet defined');
+     WriteFail('Component id is not yet defined');
      r:=False;
    end
   else if not hosts[cid].active then
    begin
-     WriteString('Error');
-     WriteString('Component already destroyed');
+     WriteFail('Component already destroyed');
      r:=False;
    end
    else
   begin
-    WriteString('Boolean');
-    WriteString('True');
+    writeOK;
     r:=True;
   end;
   if not r then
@@ -570,11 +667,13 @@ begin
    begin
      if hosts[i].active then
      begin
-       if hosts[i].host.Width<>hosts[i].width then hosts[i].host.Width:=hosts[i].width;
-       if hosts[i].host.Height<>hosts[i].height then hosts[i].host.Height:=hosts[i].height;
+       if hosts[i].isGraphical then
+       begin
+         if hosts[i].hostgraphic.Width<>hosts[i].width then hosts[i].hostgraphic.Width:=hosts[i].width;
+         if hosts[i].hostgraphic.Height<>hosts[i].height then hosts[i].hostgraphic.Height:=hosts[i].height;
+       end;
      end;
    end;
-
 end;
 
 procedure TPipeThread.WriteEvents;
@@ -621,65 +720,282 @@ end;
 
 
 
+procedure TPipeThread.WriteFail(cause: Exception);
+begin
+  WriteFail(cause.Message);
+end;
+
+procedure TPipeThread.WriteFail(cause: string);
+begin
+  WriteString('Error');
+  WriteString(cause);
+end;
+
+procedure TPipeThread.WriteOK;
+begin
+  WriteString('Boolean');
+  WriteString('True');
+end;
+
+
+function ObjectMatch(o1:IUnknown;o2:IUnknown):Boolean;
+var lo1,lo2:IUnknown;
+begin
+  o1.QueryInterface(IUnknown,lo1);
+  o2.QueryInterface(IUnknown,lo2);
+  Result := lo1 = lo2;
+end;
+
+procedure TPipeThread.WriteValue(v:OleVariant;baseguid:TGUID;guid:TGUID);
+var vtype:string;
+i:integer;
+cid:integer;
+begin
+  vtype:=VarTypeAsText(VarType(v));
+  writeString(vtype);
+  if vtype='Dispatch' then
+  begin
+    cid := -1;
+    for i := 0 to length(hosts) - 1 do
+      begin
+        if hosts[i].active then
+        begin
+          if ObjectMatch(hosts[i].host.GetObj,v) then
+           begin
+             cid:=i;
+             break;
+           end;
+        end;
+      end;
+    if cid = -1 then
+    begin
+      cid:=length(hosts);
+      setlength(hosts,cid+1);
+      hosts[cid].isGraphical := false;
+      hosts[cid].guid := GUIDToString(guid);
+      hosts[cid].active := true;
+      hosts[cid].hoststandard := TComObj.Create(baseguid,guid,IDispatch(v));
+      hosts[cid].host := hosts[cid].hoststandard;
+    end;
+    WriteUI32(cid);
+    Exit;
+  end;
+  writeString(v);
+end;
+
+
+function ws2wpch(TheWidestring:widestring):pwidechar;
+  begin
+    Result := AllocMem( Succ(Length(TheWidestring))*Sizeof(Widechar));
+    Move(TheWidestring[1],  Result^, Length(TheWidestring)*Sizeof(Widechar));
+end;
+
+
+function GetInvokeArgument(var FParamValue:OleVariant;avt:word): TVariantArg;
+var FInvokeArgument:TVariantArg;
+LParamValue:OleVariant;
+begin
+ { Convert the ParamValue to the right type }
+  OleCheck(VariantChangeType(LParamValue,FParamValue,0,avt and VT_TYPEMASK));// ));
+  FParamValue:=LParamValue;
+
+
+  log('avt:'+inttostr(avt));
+
+  FInvokeArgument.vt := avt;
+  case avt  of
+    VT_UI1:
+     FInvokeArgument.bVal := FParamValue;
+    VT_I2:
+     FInvokeArgument.iVal := FParamValue;
+    VT_I4:
+     FInvokeArgument.lVal := FParamValue;
+    VT_R4:
+     FInvokeArgument.fltVal := FParamValue;
+    VT_R8:
+     FInvokeArgument.dblVal := FParamValue;
+    VT_BOOL:
+     FInvokeArgument.vbool := FParamValue;
+    VT_ERROR:
+     FInvokeArgument.scode := FParamValue;
+    VT_CY:
+     FInvokeArgument.cyVal := FParamValue;
+    VT_DATE:
+     FInvokeArgument.date := FParamValue;
+    VT_BSTR:
+     FInvokeArgument.bstrVal := ws2wpch(VarToWideStr(FParamValue));
+    VT_UNKNOWN:
+     FInvokeArgument.unkVal := @FParamValue;
+    VT_DISPATCH:
+     FInvokeArgument.dispVal := @FParamValue;
+    VT_ARRAY:
+     FInvokeArgument.parray := @FParamValue;
+    { Cannot do Character Type with variants?
+    VT_I1:
+     FInvokeArgument.cVal := FParamValue;  }
+    VT_UI2:
+     FInvokeArgument.uiVal := FParamValue;
+    VT_UI4:
+     FInvokeArgument.ulVal := FParamValue;
+    VT_INT:
+     FInvokeArgument.intVal := FParamValue;
+    VT_UINT:
+     FInvokeArgument.uintVal := FParamValue;
+    VT_BYREF or VT_UI1:
+     FInvokeArgument.pbVal := @FParamValue;
+    VT_BYREF or VT_I2:
+     FInvokeArgument.piVal := @FParamValue;
+    VT_BYREF or VT_I4:
+     FInvokeArgument.plVal := @FParamValue;
+    VT_BYREF or VT_R4:
+     FInvokeArgument.pfltVal := @FParamValue;
+    VT_BYREF or VT_R8:
+     FInvokeArgument.pdblVal := @FParamValue;
+    VT_BYREF or VT_BOOL:
+     FInvokeArgument.pbool := @FParamValue;
+    VT_BYREF or VT_ERROR:
+     FInvokeArgument.pscode := @FParamValue;
+    VT_BYREF or VT_CY:
+     FInvokeArgument.pcyVal := @FParamValue;
+    VT_BYREF or VT_DATE:
+     FInvokeArgument.pdate := @FParamValue;
+    VT_BYREF or VT_BSTR:
+     FInvokeArgument.pbstrVal := @FParamValue;
+    VT_BYREF or VT_UNKNOWN:
+     FInvokeArgument.punkVal := @FParamValue;
+    VT_BYREF or VT_DISPATCH:
+     FInvokeArgument.pdispVal := @FParamValue;
+    VT_BYREF or VT_ARRAY:
+     FInvokeArgument.pparray := @FParamValue;
+    VT_BYREF or VT_VARIANT:
+     FInvokeArgument.pvarVal := @FParamValue;
+    VT_BYREF or VT_DECIMAL:
+     FInvokeArgument.pdecVal := @FParamValue;
+    VT_BYREF or VT_I1:
+     FInvokeArgument.pcVal := @FParamValue;
+    VT_BYREF or VT_UI2:
+     FInvokeArgument.puiVal := @FParamValue;
+    VT_BYREF or VT_UI4:
+     FInvokeArgument.pulVal := @FParamValue;
+    VT_BYREF or VT_INT:
+     FInvokeArgument.pintVal := @FParamValue;
+    VT_BYREF or VT_UINT:
+     FInvokeArgument.puintVal := @FParamValue;
+    VT_BYREF:
+     FInvokeArgument.byRef := @FParamValue;
+  end; { case }
+  result := FInvokeArgument;
+end;
+
 procedure TPipeThread.CallMethod;
-var a:array of OleVariant;
+var a:array of TVariantArg;
 i:integer;
 cnt:integer;
 name:WideString;
 ret:OleVariant;
+t:string;
+refs:array of boolean;
+baseguids:array of TGUID;
+guids:array of TGUID;
+//retref : boolean;
+retbaseguid,retguid:TGUID;
+aref:array of OleVariant;
+v:Variant;
+f:TFunction;
+p:TParameter;
 begin
   name:=ReadString();
+  f:=hosts[cid].host.FindFunction(name);
   cnt:=ReadUI16();
   SetLength(a,cnt);
+  SetLength(refs,cnt);
+  SetLength(baseguids,cnt);
+  SetLength(guids,cnt);
+  try
+  SetLength(aref,cnt);
   for i := 0 to cnt - 1 do
     begin
-      a[i] := ReadString();
+      p:=f.Parameter(i);
+
+      v := ReadValue(refs[i],baseguids[i],guids[i]);
+      aref[i]:=v;
+      if refs[i] then
+        a[i] := GetInvokeArgument(aref[i],VT_BYREF or p.Ptype)
+      else
+       a[i] := GetInvokeArgument(aref[i],p.ParamType);
     end;
 
-  try
-    ret:=hosts[cid].host.InvokeMethod(name,a);
-    writeString(VarTypeAsText(VarType(ret)));
-    writeString(ret);
+ t:=ReadString;
+ //retref:=false;
+ if t = 'Reference' then
+  begin
+    //retref:=true;
+    t:=ReadString;
+  end;
+ if t='Object' then
+  begin
+    retbaseguid := StringToGUID(readString());
+    retguid := StringToGUID(readString());
+  end;
+
+
+    if cnt=0 then
+     ret:=hosts[cid].host.InvokeMethod(name)
+    else
+     ret:=hosts[cid].host.InvokeMethod(name,a);
+
+    writeOK;
+    for i := 0 to cnt - 1 do
+      begin
+        if refs[i] then
+         begin
+            WriteValue(
+            Variant(a[i])
+            ,baseguids[i],guids[i]);
+         end;
+      end;
+   WriteValue(ret,retbaseguid,retguid);
   except
-    on e:Exception do
-     begin
-      writeString('Error');
-      writeString(e.Message);
-     end;
+    on e:Exception do WriteFail(e);
   end;
 
 end;
+
 
 procedure TPipeThread.Execute();
 var
   pipename: PAnsiChar;
   cmd: integer;
-  propVal : OleVariant;
   propTypeStr:string;
   i: Integer;
   LTypeLibVwr : TTypeLibViewer;
   ok : boolean;
   regList:TRegAxCtrlList;
   prop : TProperty;
+  sguid:string;
+  baseguid:string;
+  ref:boolean;
+  g,g2:TGUID;
 const
   CMD_ECHO = 0;
   CMD_NEW  = 1;
-  CMD_DESTROY = 2;
+  CMD_OBJ_DESTROY = 2;
   CMD_DESTROYALL = 3;
-  CMD_LIST_PROPERTIES = 4;
-  CMD_LIST_METHODS = 5;
-  CMD_LIST_EVENTS = 6;
-  CMD_RESIZE = 7;
-  CMD_GET_PROPERTY = 8;
-  CMD_SET_PROPERTY = 9;
-  CMD_SET_PARENT = 10;
-  CMD_CALL_METHOD = 11;
-  CMD_GET_METHOD_PARAMS = 12;
+  CMD_TYPE_LIST_PROPERTIES = 4;
+  CMD_TYPE_LIST_METHODS = 5;
+  CMD_TYPE_LIST_EVENTS = 6;
+  CMD_OBJ_RESIZE = 7;
+  CMD_OBJ_GET_PROPERTY = 8;
+  CMD_OBJ_SET_PROPERTY = 9;
+  CMD_OBJ_SET_PARENT = 10;
+  CMD_OBJ_CALL_METHOD = 11;
+  CMD_TYPE_GET_METHOD_PARAMS = 12;
   CMD_GET_OCX_CLASSES = 13;
   CMD_GET_REGISTERED_CLASSES = 14;
-  CMD_GET_PROPERTY_TYPE = 15;
-
+  CMD_TYPE_GET_PROPERTY_TYPE = 15;
+  CMD_TYPE_GET_INFO = 16;
 begin
+  types := TStringList.Create;
   try
     pipename := PAnsiChar('\\.\\pipe\activex_server_' + ParamStr(1));
     begin
@@ -695,24 +1011,34 @@ begin
           end;
           Synchronize(CancelWatchDog);
           case cmd of
-            CMD_GET_PROPERTY_TYPE:
+            CMD_TYPE_GET_INFO:
             begin
-              cid := ReadUI32();
-              Synchronize(CheckCid);
-              if cid<>-1 then
+              baseguid := ReadString();
+              sguid := ReadString();
+              ttype := FindType(baseguid,sguid);
+              if ttype<>nil then
               begin
-                propName := ReadString();
-                i:=hosts[cid].host.Properties.IndexOf(propName);
-                if i=-1 then
+                WriteOK;
+                WriteString(ttype.Name);
+                WriteString(ttype.DocString);
+              end;
+            end;
+            CMD_TYPE_GET_PROPERTY_TYPE:
+            begin
+              baseguid := ReadString();
+              sguid := ReadString();
+              propName := ReadString();
+              ttype := FindType(baseguid,sguid);
+              if ttype<>nil then
+              begin
+                prop := ttype.FindProperty(propName);
+                if prop = nil then
                   begin
-                    WriteString('Error');
-                    WriteString('Property does not exist');
+                    WriteFail('Property does not exist');
                   end
                   else
                   begin
-                    WriteString('Boolean');
-                    WriteString('True');
-                    prop:=hosts[cid].host.Properties.Objects[i] as TProperty;
+                    writeOK;
                     WriteString(prop.PropFullType);
                     WriteString('Boolean');
                     if prop.readable then WriteString('True') else WriteString('False');
@@ -739,19 +1065,14 @@ begin
               LTypeLibVwr := nil;
               ok:=false;
               try
-                LTypeLibVwr := TTypeLibViewer.Create(ReadString());
+                LTypeLibVwr := TTypeLibViewer.Create(GUID_NULL,ReadString());
                 ok := true;
               except
-                on e:Exception do
-                 begin
-                   WriteString('Error');
-                   WriteString(e.Message);
-                 end;
+                on e:Exception do WriteFail(e);
               end;
               if ok then
               begin
-              WriteString('Boolean');
-              WriteString('True');
+              writeOK;
               WriteUI16(LTypeLibVwr.Count);
               for i := 0 to LTypeLibVwr.Count-1 do
               begin
@@ -762,13 +1083,14 @@ begin
               LTypeLibVwr.Free;
               end;
             end;
-            CMD_GET_METHOD_PARAMS:
+            CMD_TYPE_GET_METHOD_PARAMS:
             begin
-              cid := ReadUI32();
-              Synchronize(CheckCid);
-              if cid<>-1 then
+              baseguid := ReadString();
+              sguid := ReadString();
+              methodName := ReadString();
+              ttype := FindType(baseguid,sguid);
+              if ttype<>nil then
               begin
-                methodName := ReadString();
                 Synchronize(GetMethodParams);
               end;
             end;
@@ -780,10 +1102,11 @@ begin
             CMD_NEW:
             begin
               newfilename := ReadString();
+              newbaseguid := ReadString();
               newguid := ReadString();
               Synchronize(CreateControl);
             end;
-            CMD_DESTROY:
+            CMD_OBJ_DESTROY:
             begin
               cid := ReadUI32();
               Synchronize(CheckCid);
@@ -799,38 +1122,41 @@ begin
               break;
             end;
 
-            CMD_LIST_PROPERTIES:
+            CMD_TYPE_LIST_PROPERTIES:
             begin
-              cid := ReadUI32();
-              Synchronize(CheckCid);
-              if cid<>-1 then
+              baseguid := ReadString();
+              sguid := ReadString();
+              ttype := FindType(baseguid,sguid);
+              if ttype<>nil then
               begin
               Synchronize(GetProperties);
               end;
 
             end;
 
-            CMD_LIST_METHODS:
-            begin                       
-              cid := ReadUI32();
-              Synchronize(CheckCid);
-              if cid<>-1 then
+            CMD_TYPE_LIST_METHODS:
+            begin
+              baseguid := ReadString();
+              sguid := ReadString();
+              ttype := FindType(baseguid,sguid);
+              if ttype<>nil then
               begin
               Synchronize(GetMethods);
               end;
             end;
 
-            CMD_LIST_EVENTS:
+            CMD_TYPE_LIST_EVENTS:
             begin
-              cid := ReadUI32();
-              Synchronize(CheckCid);
-              if cid<>-1 then
+              baseguid := ReadString();
+              sguid := ReadString();
+              ttype := FindType(baseguid,sguid);
+              if ttype<>nil then
               begin
                 Synchronize(GetEvents);
               end;
             end;
 
-            CMD_RESIZE:
+            CMD_OBJ_RESIZE:
             begin
               cid := ReadUI32();
               Synchronize(CheckCid);
@@ -841,39 +1167,43 @@ begin
                 Synchronize(ResizeControl);
               end;
             end;
-            CMD_GET_PROPERTY:
+            CMD_OBJ_GET_PROPERTY:
             begin
               cid := ReadUI32();
               Synchronize(CheckCid);
               if cid<>-1 then
               begin
                   propName := ReadString();
+                  propTypeStr := ReadString();
+                  if propTypeStr='Dispatch' then
+                  begin
+                    g := StringToGUID(ReadString());
+                    g2 := StringToGUID(ReadString());
+                  end;
                   if hosts[cid].host.Properties.IndexOf(propName)=-1 then
                   begin
-                    WriteString('Error');
-                    WriteString('Property does not exist');
+                    WriteFail('Property does not exist');
                   end
                   else
                   begin
                     propVal := hosts[cid].host.PropertyValue[propName];
-                    propTypeStr := VarTypeAsText(VarType(propVal));
-                    WriteString(propTypeStr);
-                    WriteString(myvartostr(propVal));
-                  end;
+                    writeOK;
+                    WriteValue(propVal,g,g2);
+                   end;
               end;
             end;
-            CMD_SET_PROPERTY:
+            CMD_OBJ_SET_PROPERTY:
             begin
               cid := ReadUI32();
               Synchronize(CheckCid);
               if cid<>-1 then
               begin
                 propName := ReadString();
-                propValStr := ReadString();
+                propVal := ReadValue(ref,g,g2);
                 Synchronize(SetProperty);
               end;
             end;
-            CMD_SET_PARENT:
+            CMD_OBJ_SET_PARENT:
             begin
               cid := ReadUI32();
               Synchronize(CheckCid);
@@ -883,7 +1213,7 @@ begin
                 Synchronize(SetParentWnd);
               end;
             end;
-            CMD_CALL_METHOD:
+            CMD_OBJ_CALL_METHOD:
             begin
               cid := ReadUI32();
               Synchronize(CheckCid);
@@ -907,6 +1237,45 @@ end;
 
 
 
+function TPipeThread.FindType(baseguid:widestring;guid: widestring): TTypeInformation;
+var i:integer;
+g:TGUID;
+g2:TGUID;
+begin
+  try
+  guid := GUIDToString(StringToGuid(guid)); //make uniform - case etc.
+  baseguid := GUIDToString(StringToGuid(baseguid));
+  for i := 0 to types.Count - 1 do
+    begin
+      if types[i] = baseguid+':'+guid then
+       begin
+         Result := types.Objects[i] as TTypeInformation;
+         Exit;
+       end;
+    end;
+
+
+    //showMessage(baseguid+':'+guid);
+  g := StringToGUID(baseguid);
+  g2:=StringToGUID(guid);
+// showmessage('A3');
+
+  Result := TTypeInformation.Create(g,g2);
+  //showmessage('B');
+
+  types.AddObject(baseguid+':'+guid,Result);
+//  showmessage('C');
+  
+  except
+    on e:Exception do
+     begin
+       WriteFail(e); //'Cannot find type');
+       Result := nil;
+     end;
+
+  end;
+end;
+
 procedure TfrmMain.FormDestroy(Sender: TObject);
 begin
   t.Free;
@@ -922,7 +1291,6 @@ i:integer;
 begin
   if Assigned(t) then
    begin
-     log('executed '+EventName);                    
      ev:=TAEvent.Create;
      ev.cid := (Sender as TComponent).Tag;
      ev.EventName := EventName;

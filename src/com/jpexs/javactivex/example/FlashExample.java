@@ -1,6 +1,9 @@
 package com.jpexs.javactivex.example;
 
-import com.jpexs.javactivex.example.controls.ShockwaveFlash;
+import com.jpexs.javactivex.ActiveX;
+import com.jpexs.javactivex.ActiveXEvent;
+import com.jpexs.javactivex.ActiveXEventListener;
+import com.jpexs.javactivex.example.controls.flash.ShockwaveFlash;
 import java.awt.BorderLayout;
 import java.awt.Button;
 import java.awt.Color;
@@ -28,7 +31,7 @@ public class FlashExample extends Frame {
         setSize(800, 600);
         setTitle("Sample ActiveX Component in Java - Flash");
         setLayout(new BorderLayout());
-        swfPlayer = new ShockwaveFlash(axPanel); 
+        swfPlayer = ActiveX.createObject(ShockwaveFlash.class, axPanel);
         add(axPanel, BorderLayout.CENTER);
         addWindowListener(new WindowAdapter() {
 
@@ -76,7 +79,14 @@ public class FlashExample extends Frame {
             public void actionPerformed(ActionEvent e) {
                 swfPlayer.Zoom((int) Math.round(100 / (1 / 1.1)));
             }
-        });               
+        });          
+        swfPlayer.addOnReadyStateChangeListener(new ActiveXEventListener() {
+
+            @Override
+            public void onEvent(ActiveXEvent ev) {
+                System.out.println("Readystate changed:"+swfPlayer.getReadyState());
+            }
+        });
     }
 
     /**

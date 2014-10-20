@@ -1,6 +1,10 @@
 package com.jpexs.javactivex.example;
 
-import com.jpexs.javactivex.example.controls.WindowsMediaPlayer;
+import com.jpexs.javactivex.ActiveX;
+import com.jpexs.javactivex.ActiveXEvent;
+import com.jpexs.javactivex.ActiveXEventListener;
+import com.jpexs.javactivex.example.controls.mediaplayer.IWMPMedia;
+import com.jpexs.javactivex.example.controls.mediaplayer.WindowsMediaPlayer;
 import java.awt.BorderLayout;
 import java.awt.Button;
 import java.awt.Color;
@@ -30,7 +34,7 @@ public class MediaPlayerExample extends Frame {
         setSize(800, 600);
         setTitle("Sample ActiveX Component in Java - Media Player");
         setLayout(new BorderLayout());
-        wmPlayer = new WindowsMediaPlayer(axPanel);    
+        wmPlayer = ActiveX.createObject(WindowsMediaPlayer.class, axPanel); 
         add(axPanel, BorderLayout.CENTER);
         addWindowListener(new WindowAdapter() {
 
@@ -45,7 +49,10 @@ public class MediaPlayerExample extends Frame {
 
         Button playButton = new Button("Play Media...");
        
+        Button infoButton = new Button("Info");
+        
         buttonsPanel.add(playButton);
+        buttonsPanel.add(infoButton);
         buttonsPanel.setBackground(Color.YELLOW);
         add(buttonsPanel, BorderLayout.NORTH);
         playButton.addActionListener(new ActionListener() {
@@ -62,12 +69,21 @@ public class MediaPlayerExample extends Frame {
             }
         });
         
+        infoButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                IWMPMedia m = wmPlayer.getCurrentMedia();                
+                System.out.println("Duration:"+m.getDuration());
+            }
+        });
+        
         //Try some events...
         axPanel.addMouseMotionListener(new MouseMotionAdapter() {
 
             @Override
             public void mouseMoved(MouseEvent e) {
-                System.out.println("Moved "+e.getX()+", "+e.getY());
+                //System.out.println("Moved "+e.getX()+", "+e.getY());
             }            
         });
         
@@ -76,9 +92,14 @@ public class MediaPlayerExample extends Frame {
             @Override
             public void mouseClicked(MouseEvent e) {
                 System.out.println("Click");
+            }                               
+        });
+        wmPlayer.addPositionChangeListener(new ActiveXEventListener() {
+            @Override
+            public void onEvent(ActiveXEvent ev) {
+                System.out.println("Pos change:"+wmPlayer.getControls().getCurrentPositionString());
             }
-            
-});
+        });
     }
 
     /**

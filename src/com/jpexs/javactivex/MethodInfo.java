@@ -7,15 +7,7 @@ import java.util.List;
  *
  * @author JPEXS
  */
-public interface ActiveXMethodInfo {
-
-    /**
-     * Call the method on its object
-     *
-     * @param args arguments
-     * @return
-     */
-    public Object call(Object... args);
+public interface MethodInfo {    
 
     /**
      * Get name of the method
@@ -23,20 +15,13 @@ public interface ActiveXMethodInfo {
      * @return
      */
     public String getName();
-
-    /**
-     * Get owner component
-     *
-     * @return
-     */
-    public Object getOwner();
-
+   
     /**
      * Get return type of the method as Java class
      *
      * @return
      */
-    public Class getReturnType();
+    public String getReturnType();
     
     /**
      * Get return type of the method
@@ -50,7 +35,7 @@ public interface ActiveXMethodInfo {
      *
      * @return
      */
-    public List<Class> getArgumentTypes();
+    public List<String> getArgumentTypes();
 
     /**
      * Get type of arguments

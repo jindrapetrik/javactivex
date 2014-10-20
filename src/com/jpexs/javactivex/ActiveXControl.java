@@ -20,10 +20,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.net.URLDecoder;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -44,20 +47,21 @@ public class ActiveXControl {
     private static WinNT.HANDLE process;
     private static final int CMD_ECHO = 0;
     private static final int CMD_NEW = 1;
-    private static final int CMD_DESTROY = 2;
+    private static final int CMD_OBJ_DESTROY = 2;
     private static final int CMD_DESTROYALL = 3;
-    private static final int CMD_LIST_PROPERTIES = 4;
-    private static final int CMD_LIST_METHODS = 5;
-    private static final int CMD_LIST_EVENTS = 6;
-    private static final int CMD_RESIZE = 7;
-    private static final int CMD_GET_PROPERTY = 8;
-    private static final int CMD_SET_PROPERTY = 9;
-    private static final int CMD_SET_PARENT = 10;
-    private static final int CMD_CALL_METHOD = 11;
-    private static final int CMD_GET_METHOD_PARAMS = 12;
+    private static final int CMD_TYPE_LIST_PROPERTIES = 4;
+    private static final int CMD_TYPE_LIST_METHODS = 5;
+    private static final int CMD_TYPE_LIST_EVENTS = 6;
+    private static final int CMD_OBJ_RESIZE = 7;
+    private static final int CMD_OBJ_GET_PROPERTY = 8;
+    private static final int CMD_OBJ_SET_PROPERTY = 9;
+    private static final int CMD_OBJ_SET_PARENT = 10;
+    private static final int CMD_OBJ_CALL_METHOD = 11;
+    private static final int CMD_TYPE_GET_METHOD_PARAMS = 12;
     private static final int CMD_GET_OCX_CLASSES = 13;
     private static final int CMD_GET_REGISTERED_CLASSES = 14;
-    private static final int CMD_GET_PROPERTY_TYPE = 15;
+    private static final int CMD_TYPE_GET_PROPERTY_TYPE = 15;
+    private static final int CMD_TYPE_GET_INFO = 16;
 
     private static final Object AXLOCK = new Object();
 
@@ -68,10 +72,11 @@ public class ActiveXControl {
     private String progId;
     private boolean attached = false;
     private String className;
+        
 
     private static final int ECHO_INTERVAL = 100;
 
-    private final static Map<Class<?>, Class<?>> boxedMap = new HashMap<>();
+    private final static Map<String, String> boxedMap = new HashMap<>();
     private static Timer syncTimer = new Timer();
 
     private Panel panel;
@@ -86,14 +91,14 @@ public class ActiveXControl {
             throw new UnsupportedOperationException("Active X is available on Windows only.");
         }
 
-        boxedMap.put(boolean.class, Boolean.class);
-        boxedMap.put(byte.class, Byte.class);
-        boxedMap.put(short.class, Short.class);
-        boxedMap.put(char.class, Character.class);
-        boxedMap.put(int.class, Integer.class);
-        boxedMap.put(long.class, Long.class);
-        boxedMap.put(float.class, Float.class);
-        boxedMap.put(double.class, Double.class);
+        boxedMap.put("boolean", "Boolean");
+        boxedMap.put("byte", "Byte");
+        boxedMap.put("short", "Short");
+        boxedMap.put("char", "Character");
+        boxedMap.put("int", "Integer");
+        boxedMap.put("long", "Long");
+        boxedMap.put("float", "Float");
+        boxedMap.put("double", "Double");
 
         String path = "";
         try {
@@ -110,8 +115,8 @@ public class ActiveXControl {
         if (exeStream == null) {
             throw new ActiveXException("Cannot load javactivex server stream");
         }
-        
-        File exeFile = new File(System.getProperty("java.io.tmpdir")+File.separator+"javactivex_"+System.currentTimeMillis()+".exe");
+
+        File exeFile = new File(System.getProperty("java.io.tmpdir") + File.separator + "javactivex_" + System.currentTimeMillis() + ".exe");
         final int BUFSIZE = 1024;
         byte buf[] = new byte[BUFSIZE];
         try (FileOutputStream fos = new FileOutputStream(exeFile)) {
@@ -147,7 +152,12 @@ public class ActiveXControl {
 
             @Override
             public void run() {
-                echo();
+                
+                try{
+                  echo();
+                }catch(Exception ex){
+                    ex.printStackTrace();
+                }
                 /*
                  if (syncTimer != null) {
                  syncTimer.cancel();
@@ -161,16 +171,30 @@ public class ActiveXControl {
 
             @Override
             public void run() {
-                writeCommand(CMD_DESTROYALL);
-                Kernel32.INSTANCE.CloseHandle(pipe);
-                Kernel32.INSTANCE.TerminateProcess(process, 0);
+                unload();
             }
 
         });
     }
 
+    private static boolean unloaded = false;
+    
+    public static void unload(){
+        if(unloaded){
+            return;
+        }
+        writeCommand(CMD_DESTROYALL);
+        Kernel32.INSTANCE.CloseHandle(pipe);
+        Kernel32.INSTANCE.TerminateProcess(process, 0);
+        unloaded = true;
+    }
+    
     private static Map<Long, Map<String, List<ActiveXEventListener>>> listeners = new HashMap<>();
 
+    public String getClassName() {
+        return className;
+    }   
+    
     private static void addControlEventListener(String eventName, ActiveXControl control, ActiveXEventListener listener) {
         if (!listeners.containsKey(control.cid)) {
             listeners.put(control.cid, new HashMap<String, List<ActiveXEventListener>>());
@@ -183,6 +207,10 @@ public class ActiveXControl {
             listeners.get(control.cid).put(eventName, new ArrayList<ActiveXEventListener>());
         }
         listeners.get(control.cid).get(eventName).add(listener);
+    }
+
+    public long getCid() {
+        return cid;
     }
 
     private static void removeControlEventListener(String eventName, ActiveXControl control, ActiveXEventListener listener) {
@@ -253,58 +281,75 @@ public class ActiveXControl {
         }
     }
 
-    public static Class strToClass(String type) {
+    public static String strToClassName(String type) {
+        if (type.startsWith("Pointer|Dispatch:")) {
+            type = type.substring("Pointer|".length());
+        }
+        if (type.startsWith("Dispatch:")) {
+            String pts[] = type.split(":");
+            return pts[1];
+        }
+        if (type.startsWith("Pointer|Variant")) {
+            return "Object";
+        }
+        if (type.startsWith("Pointer|")) {
+            String inc = strToClassName(type.substring("Pointer|".length()));
+            if (boxedMap.containsKey(inc)) {
+                inc = boxedMap.get(inc);
+            }
+            return "Reference<" + inc + ">";
+        }
         switch (type) {
             case "Empty":
                 return null;
             case "Null":
                 return null;
             case "Smallint":
-                return int.class;
+                return "int";
             case "Integer":
-                return int.class;
+                return "int";
             case "Single":
-                return float.class;
+                return "float";
             case "Double":
-                return double.class;
+                return "double";
             case "Currency":
-                return BigDecimal.class;
+                return "BigDecimal";
             case "Date":
                 return null;
             case "OleStr":
-                return String.class;
+                return "String";
             case "Dispatch":
                 return null; //Unsupported
             case "Error":
                 return null; //Unsupported
             case "Boolean":
-                return boolean.class;
+                return "boolean";
             case "Variant":
-                return String.class; //??
+                return "Object"; //??
             case "Unknown":
-                return null; //Unsupported
+                return "Object"; //Unsupported
             case "Decimal":
-                return BigDecimal.class;
+                return "BigDecimal";
             case "$0F":
                 return null;
             case "ShortInt":
-                return short.class;
+                return "short";
             case "Byte":
-                return int.class;
+                return "int";
             case "Word":
-                return int.class;
+                return "int";
             case "LongWord":
-                return long.class;
+                return "long";
             case "Int64":
-                return BigInteger.class;
+                return "BigInteger";
             case "Int":
-                return int.class;
+                return "int";
             case "UInt":
-                return int.class;
+                return "int";
             case "Void":
-                return void.class;
+                return "void";
             case "HResult":
-                return null; //Unsupported
+                return "int"; //Unsupported
             case "Pointer":
                 return null; //Unsupported
             case "SafeArray":
@@ -312,11 +357,11 @@ public class ActiveXControl {
             case "CArray":
                 return null; //Unsupported
             case "UserDefined":
-                return null; //Unsupported
+                return "Object"; //Unsupported
             case "LPStr":
-                return String.class;
+                return "String";
             case "LPWStr":
-                return String.class;
+                return "String";
             case "IntPtr":
             case "UIntPtr":
             case "FileTime":
@@ -335,6 +380,9 @@ public class ActiveXControl {
     }
 
     private static Object strToValue(String type, String value) {
+        if(type.startsWith("ByRef ")){
+            type=type.substring("ByRef ".length());
+        }
         try {
             switch (type) {
                 case "Empty":
@@ -424,9 +472,9 @@ public class ActiveXControl {
      * @param name Property name
      * @return Type class
      */
-    public ActiveXProperty getProperty(String name) {
+    public static Property getProperty(String baseguid, String guid, String name) {
         synchronized (AXLOCK) {
-            writeComponentCommand(CMD_GET_PROPERTY_TYPE);
+            writeTypeCommand(CMD_TYPE_GET_PROPERTY_TYPE, baseguid, guid);
             writeString(name);
             readResult();
             String type = readString();
@@ -434,7 +482,7 @@ public class ActiveXControl {
             boolean readable = readString().equals("True");
             readString();
             boolean writable = readString().equals("True");
-            return new ActiveXProperty(name, strToClass(type), type, readable, writable);
+            return new Property(name, strToClassName(type), type, readable, writable);
         }
     }
 
@@ -444,8 +492,8 @@ public class ActiveXControl {
      * @param name Method name
      * @return True when exists
      */
-    public boolean methodExists(String name) {
-        return getMethodNames().contains(name);
+    public static boolean methodExists(String baseguid, String guid, String name) {
+        return getMethodNames(baseguid, guid).contains(name);
     }
 
     /**
@@ -454,22 +502,22 @@ public class ActiveXControl {
      * @param name Method name
      * @return Method object
      */
-    public ActiveXMethodInfo getMethod(final String name) {
-        if (!methodExists(name)) {
+    public static MethodInfo getMethod(String baseguid, String guid, final String name) {
+        if (!methodExists(baseguid, guid, name)) {
             return null;
         }
 
         final List<String> argNames = new ArrayList<>();
-        final List<Class> argTypes = new ArrayList<>();
+        final List<String> argTypes = new ArrayList<>();
         final List<String> argTypesStr = new ArrayList<>();
         synchronized (AXLOCK) {
-            writeComponentCommand(CMD_GET_METHOD_PARAMS);
+            writeTypeCommand(CMD_TYPE_GET_METHOD_PARAMS, baseguid, guid);
             writeString(name);
             readResult();
             final String fname = readString();
             final String returnName = readString();
             final String returnTypeStr = readString();
-            final Class returnType = strToClass(returnTypeStr);
+            final String returnType = strToClassName(returnTypeStr);
             int parameterCount = readUI16();
             final int optionalParameterCount = readUI16();
             for (int i = 0; i < parameterCount; i++) {
@@ -477,11 +525,11 @@ public class ActiveXControl {
                 String ptype = readString();
                 argNames.add(pname);
                 argTypesStr.add(ptype);
-                argTypes.add(strToClass(ptype));
+                argTypes.add(strToClassName(ptype));
             }
             final String doc = readString();
 
-            return new ActiveXMethodInfo() {
+            return new MethodInfo() {
 
                 @Override
                 public int getOptionalArgumentCount() {
@@ -497,12 +545,12 @@ public class ActiveXControl {
 
                 @Override
                 public String toString() {
-                    String ret = typeToStr(returnType) + " " + getName() + "(";
+                    String ret = returnType + " " + getName() + "(";
                     for (int i = 0; i < argNames.size(); i++) {
                         if (i > 0) {
                             ret += ", ";
                         }
-                        ret += typeToStr(argTypes.get(i)) + " " + argNames.get(i);
+                        ret += (argTypes.get(i)) + " " + argNames.get(i);
                     }
                     ret += ")";
                     return ret;
@@ -529,28 +577,18 @@ public class ActiveXControl {
                 }
 
                 @Override
-                public Object getOwner() {
-                    return ActiveXControl.this;
-                }
-
-                @Override
-                public Class getReturnType() {
+                public String getReturnType() {
                     return returnType;
                 }
 
                 @Override
-                public List<Class> getArgumentTypes() {
+                public List<String> getArgumentTypes() {
                     return argTypes;
                 }
 
                 @Override
                 public List<String> getArgumentTypesStr() {
                     return argTypesStr;
-                }
-
-                @Override
-                public Object call(Object... args) {
-                    return callMethodArr(name, args);
                 }
 
                 @Override
@@ -568,10 +606,10 @@ public class ActiveXControl {
                     if (obj == null) {
                         return false;
                     }
-                    if (!(obj instanceof ActiveXMethodInfo)) {
+                    if (!(obj instanceof MethodInfo)) {
                         return false;
                     }
-                    ActiveXMethodInfo m = (ActiveXMethodInfo) obj;
+                    MethodInfo m = (MethodInfo) obj;
 
                     return getName().equals(m.getName());
                 }
@@ -589,6 +627,12 @@ public class ActiveXControl {
         }
     }
 
+    private static void writeTypeCommand(int command, String baseguid, String guid) {
+        writeCommand(command);
+        writeString(baseguid);
+        writeString(guid);
+    }
+
     private void writeComponentCommand(int command) {
         writeCommand(command);
         writeCid();
@@ -600,15 +644,25 @@ public class ActiveXControl {
      * @param name Property name
      * @return Value of property
      */
-    public Object getPropertyValue(String name) {
+    public Object getPropertyValue(Class c, String name) {
         synchronized (AXLOCK) {
-            writeComponentCommand(CMD_GET_PROPERTY);
+            writeComponentCommand(CMD_OBJ_GET_PROPERTY);
             writeString(name);
-            String type = readString();
-            String val = readString();
-            if ("Error".equals(type)) {
-                throw new ActiveXException(val);
+            GUID g = (GUID) c.getAnnotation(GUID.class);
+            if (g != null) {
+                writeString("Dispatch");
+                writeString(g.base().equals("") ? g.value() : g.base());
+                writeString(g.value());
+            } else {
+                writeString("String");
             }
+            readResult();
+            String type = readString();
+            if (type.equals("Dispatch")) {
+                long cid = readUI32();
+                return ActiveX.getObject(c, cid);
+            }
+            String val = readString();
             return strToValue(type, val);
         }
     }
@@ -627,10 +681,19 @@ public class ActiveXControl {
      * @param name Property name
      * @param value New value
      */
-    public void setPropertyValue(String name, Object value) {
+    public void setPropertyValue(Class c, String name, Object value) {
         synchronized (AXLOCK) {
-            writeComponentCommand(CMD_SET_PROPERTY);
+            writeComponentCommand(CMD_OBJ_SET_PROPERTY);
             writeString(name);
+            GUID g = (GUID) c.getAnnotation(GUID.class);
+            if (g != null && (value instanceof ICOMInstance)) {
+                writeString("Dispatch");
+                writeUI32(((ICOMInstance) value).getCid());
+                writeString(g.base().equals("") ? g.value() : g.base());
+                writeString(g.value());
+            } else {
+                writeString("String");
+            }
             writeString("" + value);
             readResult();
         }
@@ -642,14 +705,18 @@ public class ActiveXControl {
      * @param ocx OCX file
      * @return List of classinfos
      */
-    public static List<ActiveXClassInfo> getOcxClasses(File ocx) {
-        List<ActiveXClassInfo> ret = new ArrayList<>();
+    public static List<ClassInfo> getOcxClasses(File ocx) {
+        List<ClassInfo> ret = new ArrayList<>();
         writeCommand(CMD_GET_OCX_CLASSES);
         writeString(ocx.getAbsolutePath());
         readResult();
         int cnt = readUI16();
         for (int i = 0; i < cnt; i++) {
-            ret.add(new ActiveXClassInfo(readString(), readString(), readString(), ocx));
+            String name = readString();
+            String docstring = readString();
+            String baseguid = readString();
+            String guid = baseguid;
+            ret.add(new ClassInfo(name, docstring, baseguid, guid, ocx));
         }
         return ret;
     }
@@ -659,8 +726,8 @@ public class ActiveXControl {
      *
      * @param guid ClassId - GUID
      */
-    public ActiveXControl(String guid, Panel panel) {
-        this("", guid, panel);
+    public ActiveXControl(String baseguid, String guid, Panel panel) {
+        this("", baseguid, guid, panel);
     }
 
     /**
@@ -669,8 +736,8 @@ public class ActiveXControl {
      * @param filename File to create class from
      * @param guid ClassId - GUID
      */
-    public ActiveXControl(File filename, String guid, Panel panel) {
-        this(filename.getAbsolutePath(), guid, panel);
+    public ActiveXControl(File filename, String baseguid, String guid, Panel panel) {
+        this(filename.getAbsolutePath(), baseguid, guid, panel);
     }
 
     /**
@@ -691,18 +758,31 @@ public class ActiveXControl {
         return docString;
     }
 
+    private ActiveXControl(long cid) {
+        this.cid = cid;
+        instances.put(cid, this);
+    }
+
+    public static ActiveXControl getInstance(long cid) {
+        if (instances.containsKey(cid)) {
+            return instances.get(cid);
+        }
+        return new ActiveXControl(cid);
+    }
+
     /**
      * Creates ActiveX control from file path
      *
      * @param filename File path to create class from
      * @param guid ClassId - GUID
      */
-    public ActiveXControl(String filename, String guid, Panel panel) {
+    public ActiveXControl(String filename, String baseguid, String guid, Panel panel) {
         this.guid = guid;
         this.panel = panel;
         synchronized (AXLOCK) {
             writeCommand(CMD_NEW);
             writeString(filename);
+            writeString(baseguid);
             writeString(guid);
             readResult();
             cid = readUI32();
@@ -745,7 +825,7 @@ public class ActiveXControl {
 
     private void attach() {
         synchronized (AXLOCK) {
-            writeComponentCommand(CMD_SET_PARENT);
+            writeComponentCommand(CMD_OBJ_SET_PARENT);
             hwnd = Native.getComponentPointer(panel).hashCode();
             writeUI32(hwnd);
 
@@ -842,7 +922,7 @@ public class ActiveXControl {
             attach();
         }
         synchronized (AXLOCK) {
-            writeComponentCommand(CMD_RESIZE);
+            writeComponentCommand(CMD_OBJ_RESIZE);
             writeUI16(panel.getWidth());
             writeUI16(panel.getHeight());
         }
@@ -853,9 +933,10 @@ public class ActiveXControl {
      *
      * @return
      */
-    public List<String> getPropertyNames() {
+    public static List<String> getPropertyNames(String baseguid, String guid) {
         synchronized (AXLOCK) {
-            writeComponentCommand(CMD_LIST_PROPERTIES);
+            writeTypeCommand(CMD_TYPE_LIST_PROPERTIES, baseguid, guid);
+            readResult();
             return readStrings();
         }
     }
@@ -865,9 +946,10 @@ public class ActiveXControl {
      *
      * @return
      */
-    public Set<String> getMethodNames() {
+    public static Set<String> getMethodNames(String baseguid, String guid) {
         synchronized (AXLOCK) {
-            writeComponentCommand(CMD_LIST_METHODS);
+            writeTypeCommand(CMD_TYPE_LIST_METHODS, baseguid, guid);
+            readResult();
             return new HashSet<>(readStrings());
         }
     }
@@ -877,26 +959,14 @@ public class ActiveXControl {
      *
      * @return
      */
-    public List<String> getEventNames() {
+    public static List<String> getEventNames(String baseguid, String guid) {
         synchronized (AXLOCK) {
-            writeComponentCommand(CMD_LIST_EVENTS);
+            writeTypeCommand(CMD_TYPE_LIST_EVENTS, baseguid, guid);
+            readResult();
             return readStrings();
         }
     }
-
-    /**
-     * Call method on object
-     *
-     * @param methodName Method name
-     * @param args Call arguments
-     * @return Return value of method
-     */
-    public Object callMethod(String methodName, Object... args) {
-        synchronized (AXLOCK) {
-            return callMethodArr(methodName, args);
-        }
-    }
-
+    
     /**
      * Call method on object with array arguments
      *
@@ -904,20 +974,77 @@ public class ActiveXControl {
      * @param args Call arguments
      * @return Return value of method
      */
-    public Object callMethodArr(String methodName, Object[] args) {
+    public <E> E callMethodArr(String methodName, Object[] args, Class[] paramTypes,Type[] genericParamTypes, Class<E> retType) {
         synchronized (AXLOCK) {
-            writeComponentCommand(CMD_CALL_METHOD);
+            writeComponentCommand(CMD_OBJ_CALL_METHOD);
             writeString(methodName);
             writeUI16(args.length);
-            for (Object o : args) {
-                writeString("" + o);
+            for (int i = 0; i < args.length; i++) {
+
+                Object o = args[i];
+                Class c = paramTypes[i];
+                if (Reference.class.isAssignableFrom(c)) {
+                    o = ((Reference) o).getVal();                    
+                    ParameterizedType s=(ParameterizedType)genericParamTypes[i];
+                    c = (Class)s.getActualTypeArguments()[0];                   
+                    writeString("Reference");
+                }
+                GUID g = (GUID) c.getAnnotation(GUID.class);
+
+                if (g != null) {
+                    writeString("Object");
+                    writeString(g.base().equals("") ? g.value() : g.base());
+                    writeString(g.value());
+                    writeUI32(((ICOMInstance) o).getCid());
+                } else {
+                    writeString("String");
+                    writeString("" + o);
+                }
             }
+            Class c = retType;
+            if (Reference.class.isAssignableFrom(c)) {
+                ParameterizedType referenceType = (ParameterizedType) c.getGenericSuperclass();
+                c = (Class<?>) referenceType.getActualTypeArguments()[0];
+                writeString("Reference");
+            }
+            if (ICOMInstance.class.isAssignableFrom(c)) {
+                writeString("Object");
+                GUID g = (GUID) c.getAnnotation(GUID.class);
+                if (g == null) {
+                    throw new ActiveXException("No GUID");
+                }
+                writeString(g.base().equals("") ? g.value() : g.base());
+                writeString(g.value());
+            } else {
+                writeString("String");
+            }
+
+            readResult();
+
+            for (int i = 0; i < args.length; i++) {
+                c = paramTypes[i];
+                Object o = args[i];
+                if (Reference.class.isAssignableFrom(c)) {
+                    String type = readString();
+                    if (type.equals("Dispatch")) {
+                        long cid = readUI32();
+                        ((Reference) o).setVal(ActiveX.getObject(retType, cid));
+                    } else {
+                        String val = readString();
+                        System.out.println("Reference("+i+") assigned:"+val+" ("+type+")");
+                        ((Reference) o).setVal(strToValue(type, val));                        
+                    }
+                }
+            }
+
             String type = readString();
-            String val = readString();
-            if ("Error".equals(type)) {
-                throw new ActiveXException(val);
+            if (type.equals("Dispatch")) {
+                long cid = readUI32();
+                return ActiveX.getObject(retType, cid);
+            } else {
+                String val = readString();             
+                return (E) strToValue(type, val);
             }
-            return strToValue(type, val);
         }
     }
 
@@ -950,7 +1077,7 @@ public class ActiveXControl {
     private static long readUI32() {
         byte data[] = new byte[4];
         read(data);
-        return ((data[0] & 0xff) << 24) + ((data[0] & 0xff) << 16) + ((data[0] & 0xff) << 8) + (data[1] & 0xff);
+        return ((data[0] & 0xff) << 24) + ((data[1] & 0xff) << 16) + ((data[2] & 0xff) << 8) + (data[3] & 0xff);
     }
 
     private static void writeCommand(int cmd) {
@@ -1021,39 +1148,7 @@ public class ActiveXControl {
         }
         return 0;
     }
-
-    /**
-     * Generates Java Definition from registered Class Id - GUID
-     *
-     * @param classId Class Id - GUID
-     * @return
-     */
-    public static String generateJavaDefinition(String classId, boolean isGraphicControl) {
-        return generateJavaDefinition("", classId, isGraphicControl);
-    }
-
-    /**
-     * Generates Java Definition from OCX file
-     *
-     * @param ocx Path to OCX file
-     * @param classId Class Id - GUID
-     * @return
-     */
-    public static String generateJavaDefinition(String ocx, String classId, boolean isGraphicControl) {
-        return new ActiveXControl(ocx, classId, null).getJavaDefinition(isGraphicControl);
-    }
-
-    /**
-     * Generates Java Definition from OCX file
-     *
-     * @param ocx OCX file
-     * @param classId Class Id - GUID
-     * @return
-     */
-    public static String generateJavaDefinition(File ocx, String classId, boolean isGraphicControl) {
-        return generateJavaDefinition(ocx.getAbsolutePath(), classId, isGraphicControl);
-    }
-
+    
     /**
      * Converts ProgId to suitable Java class name
      *
@@ -1081,8 +1176,24 @@ public class ActiveXControl {
      *
      * @return
      */
-    public String getClassName() {
-        return className;
+    public static String getClassName(String baseguid, String guid) {
+        synchronized (AXLOCK) {
+            writeTypeCommand(CMD_TYPE_GET_INFO, baseguid, guid);
+            readResult();
+            String name = readString();
+            readString();
+            return name;
+        }
+    }
+
+    public static String getClassDoc(String baseguid, String guid) {
+        synchronized (AXLOCK) {
+            writeTypeCommand(CMD_TYPE_GET_INFO, baseguid, guid);
+            readResult();
+            readString();
+            String docString = readString();
+            return docString;
+        }
     }
 
     private static String firstToUpperCase(String s) {
@@ -1095,11 +1206,29 @@ public class ActiveXControl {
         return s.substring(0, 1).toUpperCase() + s.substring(1);
     }
 
-    private static String typeToStr(Class c) {
+    private static String typeToStr(String c) {
         if (c == null) {
             return "Object";
         }
-        return c.getSimpleName();
+        return c;
+    }
+
+    private static void parseNeededGuid(String type, Set<String> neededGuids) {
+        if (type == null) {
+            return;
+        }
+        String pts[];
+        if (!type.contains("|")) {
+            pts = new String[]{type};
+        } else {
+            pts = type.split("\\|");
+        }
+        for (String p : pts) {
+            if (p.startsWith("Dispatch:") || p.startsWith("Unknown:")) {
+                pts = p.split(":");
+                neededGuids.add(pts[2] + ":" + pts[3]);
+            }
+        }
     }
 
     /**
@@ -1107,17 +1236,18 @@ public class ActiveXControl {
      *
      * @return
      */
-    public String getJavaDefinition(boolean isGraphicControl) {
+    public static String getJavaDefinition(String baseguid, String guid, Set<String> neededGuids, String javaPackage) {
         StringBuilder sb = new StringBuilder();
         String nl = System.lineSeparator();
-        String controlName = getClassName();
+        String controlName = getClassName(baseguid, guid);
+
+        String docString = getClassDoc(baseguid, guid);
 
         if (controlName == null) {
             controlName = "MyClass";
         }
-        sb.append("import com.jpexs.javactivex.ActiveXControl;").append(nl);
-        sb.append("import java.io.File;").append(nl);
-        sb.append("import java.awt.Panel;").append(nl);
+        sb.append("package ").append(javaPackage).append(";").append(nl).append(nl);
+        sb.append("import com.jpexs.javactivex.*;").append(nl);
         sb.append(nl);
         sb.append("/**").append(nl);
         if (docString.isEmpty()) {
@@ -1125,73 +1255,49 @@ public class ActiveXControl {
         }
         sb.append(" * ").append(docString).append(nl);
         sb.append(" */").append(nl);
-        sb.append("public class ").append(controlName).append(" extends ActiveXControl {").append(nl);
+        if (baseguid == null || baseguid.equals("") || baseguid.equals(guid)) {
+            sb.append("@GUID(\"").append(guid).append("\")").append(nl);
+        } else {
+            sb.append("@GUID(value=\"").append(guid).append("\", base=\"").append(baseguid).append("\")").append(nl);
+        }
+
+        sb.append("public interface ").append(controlName).append(" {").append(nl);
 
         sb.append(nl);
-        sb.append("\t/**").append(nl);
-        sb.append("\t * Constructs class which is already registered").append(nl);
-        if (isGraphicControl) {
-            sb.append("\t * @param panel Target panel to view component in").append(nl);
-        }
-        sb.append("\t */").append(nl);
-        sb.append("\tpublic ").append(controlName).append("(");
-        if (isGraphicControl) {
-            sb.append("Panel panel");
-        }
-        sb.append(") {").append(nl);
-        sb.append("\t\tthis(");
-        if (isGraphicControl) {
-            sb.append("panel, ");
-        }
-        sb.append("\"\");").append(nl);
-        sb.append("\t}").append(nl);
 
-        sb.append(nl);
-        sb.append("\t/**").append(nl);
-        sb.append("\t * Constructs ").append(controlName).append(" from OCX path").append(nl);
-        if (isGraphicControl) {
-            sb.append("\t * @param panel Target panel to view component in").append(nl);
-        }
-        sb.append("\t * @param ocxPath Path to OCX file which contains ").append(controlName).append(" class").append(nl);
-        sb.append("\t */").append(nl);
-        sb.append("\tpublic ").append(controlName).append("(");
-        if (isGraphicControl) {
-            sb.append("Panel panel,");
-        }
-        sb.append("String ocxPath) {").append(nl);
-        sb.append("\t\tsuper(ocxPath,\"").append(guid).append("\"");
-        if (isGraphicControl) {
-            sb.append(", panel");
-        }
-        sb.append(");").append(nl);
-        sb.append("\t}").append(nl);
+        Set<String> methodNames = getMethodNames(baseguid, guid);
 
-        sb.append(nl);
-        sb.append("\t/**").append(nl);
-        sb.append("\t * Constructs ").append(controlName).append(" from OCX file").append(nl);
-        if (isGraphicControl) {
-            sb.append("\t * @param panel Target panel to view component in").append(nl);
+        String hiddenMethods[] = new String[]{
+            "AddRef", "Release", "QueryInterface", //IUnknown
+            "GetIDsOfNames", "GetTypeInfo", "GetTypeInfoCount", "Invoke" //IDispatch
+        };
+        
+        List<String> events=getEventNames(baseguid, guid);
+        for(String event:events){
+            sb.append(nl);
+            sb.append("\t/**").append(nl);
+            sb.append("\t * Adds ").append(event).append(" event listener").append(nl);
+            sb.append("\t * @param l Event listener").append(nl);            
+            sb.append("\t */").append(nl);
+            sb.append("\t@AddListener(\"").append(event).append("\")").append(nl);
+            sb.append("\tpublic void add").append(firstToUpperCase(event)).append("Listener(ActiveXEventListener l);").append(nl);
+            
+            sb.append(nl);
+            sb.append("\t/**").append(nl);
+            sb.append("\t * Removes ").append(event).append(" event listener").append(nl);
+            sb.append("\t * @param l Event listener").append(nl);
+            sb.append("\t */").append(nl);
+            sb.append("\t@RemoveListener(\"").append(event).append("\")").append(nl);
+            sb.append("\tpublic void remove").append(firstToUpperCase(event)).append("Listener(ActiveXEventListener l);").append(nl);
         }
-        sb.append("\t * @param ocx OCX file which contains ").append(controlName).append(" class").append(nl);
-        sb.append("\t */").append(nl);
-        sb.append("\tpublic ").append(controlName).append("(");
-        if (isGraphicControl) {
-            sb.append("Panel panel, ");
-        }
-
-        sb.append("File ocx) {").append(nl);
-        sb.append("\t\tthis(");
-        if (isGraphicControl) {
-            sb.append("panel, ");
-        }
-        sb.append("ocx.getAbsolutePath());").append(nl);
-        sb.append("\t}").append(nl);
-
-        Set<String> methodNames = getMethodNames();
 
         for (String metName : methodNames) {
-            ActiveXMethodInfo m = getMethod(metName);
+            MethodInfo m = getMethod(baseguid, guid, metName);
             String doc = m.getDoc();
+
+            if (Arrays.asList(hiddenMethods).contains(metName)) {
+                continue;
+            }
 
             int optcnt = m.getOptionalArgumentCount();
             for (int k = 0; k <= optcnt; k++) {
@@ -1205,18 +1311,21 @@ public class ActiveXControl {
                 sb.append("\t * ").append(nl);
 
                 List<String> argnames = m.getArgumentNames();
-                List<Class> argtypes = m.getArgumentTypes();
+                List<String> argtypes = m.getArgumentTypes();
                 List<String> argtypesstr = m.getArgumentTypesStr();
                 for (int i = 0; i < argnames.size() - k; i++) {
+                    parseNeededGuid(argtypesstr.get(i), neededGuids);
                     sb.append("\t * @param ").append(argnames.get(i));
                     if (argtypes.get(i) == null) {
                         sb.append(" (").append(argtypesstr.get(i)).append(") ");
                     }
                     sb.append(nl);
                 }
-                Class retType = m.getReturnType();
+                String retType = m.getReturnType();
 
-                if (retType != void.class) {
+                parseNeededGuid(m.getReturnTypeStr(), neededGuids);
+
+                if (!"void".equals(retType)) {
                     sb.append("\t * @return");
                     if (retType == null) {
                         sb.append(" (").append(m.getReturnTypeStr()).append(")");
@@ -1235,43 +1344,21 @@ public class ActiveXControl {
                 }
                 sb.append(")");
 
-                sb.append(" {").append(nl);
-                sb.append("\t\t");
-
-                if (retType != void.class) {
-                    sb.append("return ");
-                    if (retType != null) {
-                        if (boxedMap.containsKey(retType)) {
-                            sb.append("(").append(boxedMap.get(retType).getSimpleName()).append(")");
-                        } else {
-                            sb.append("(").append(retType.getSimpleName()).append(")");
-                        }
-                    }
-                }
-                sb.append("callMethod(\"").append(metName).append("\"");
-                for (int i = 0; i < argnames.size() - k; i++) {
-                    sb.append(", ");
-                    sb.append(argnames.get(i));
-                }
-                sb.append(");").append(nl);
-                sb.append("\t}").append(nl);
+                sb.append(";").append(nl).append(nl);
             }
 
         }
 
-        List<String> propNames = getPropertyNames();
+        List<String> propNames = getPropertyNames(baseguid, guid);
 
         for (String propName : propNames) {
-            ActiveXProperty p = getProperty(propName);
-            Class type = p.type;
+            Property p = getProperty(baseguid, guid, propName);
+            parseNeededGuid(p.typeStr, neededGuids);
+            String type = strToClassName(p.typeStr);
             boolean customType = false;
             if (type == null) {
-                type = Object.class;
+                type = "Object";
                 customType = true;
-            }
-            Class coerceType = type;
-            if (boxedMap.containsKey(coerceType)) {
-                coerceType = boxedMap.get(coerceType);
             }
             if (p.readable) {
                 sb.append(nl);
@@ -1284,9 +1371,8 @@ public class ActiveXControl {
                 }
                 sb.append(propName).append(" value").append(nl);
                 sb.append("\t */").append(nl);
-                sb.append("\tpublic ").append(type.getSimpleName()).append(" get").append(firstToUpperCase(propName)).append(methodExists("get" + firstToUpperCase(propName)) ? "_" : "").append("() {").append(nl);
-                sb.append("\t\treturn (").append(coerceType.getSimpleName()).append(")getPropertyValue(\"").append(propName).append("\");").append(nl);
-                sb.append("\t}").append(nl);
+                sb.append("\t@Getter(\"").append(propName).append("\")").append(nl);
+                sb.append("\tpublic ").append(typeToStr(type)).append(" get").append(firstToUpperCase(propName)).append(methodExists(baseguid, guid, "get" + firstToUpperCase(propName)) ? "_" : "").append("();").append(nl);               
             }
 
             if (p.writable) {
@@ -1300,9 +1386,8 @@ public class ActiveXControl {
                 }
                 sb.append("New ").append(propName).append(" value").append(nl);
                 sb.append("\t */").append(nl);
-                sb.append("\tpublic void set").append(firstToUpperCase(propName)).append(methodExists("set" + firstToUpperCase(propName)) ? "_" : "").append("(").append(type.getSimpleName()).append(" value) {").append(nl);
-                sb.append("\t\tsetPropertyValue(\"").append(propName).append("\",value);").append(nl);
-                sb.append("\t}").append(nl);
+                sb.append("\t@Setter(\"").append(propName).append("\")").append(nl);
+                sb.append("\tpublic void set").append(firstToUpperCase(propName)).append(methodExists(baseguid, guid, "set" + firstToUpperCase(propName)) ? "_" : "").append("(").append(type).append(" value);").append(nl);                
             }
         }
 
@@ -1325,13 +1410,19 @@ public class ActiveXControl {
      *
      * @return
      */
-    public static List<ActiveXClassInfo> getRegisteredClasses() {
-        List<ActiveXClassInfo> ret = new ArrayList<>();
+    public static List<ClassInfo> getRegisteredClasses() {
+        List<ClassInfo> ret = new ArrayList<>();
         synchronized (AXLOCK) {
             writeCommand(CMD_GET_REGISTERED_CLASSES);
             int cnt = readUI16();
             for (int i = 0; i < cnt; i++) {
-                ret.add(new ActiveXClassInfo(readString(), readString(), readString(), new File(readString())));
+
+                String name = readString();
+                String docstring = readString();
+                String baseguid = readString();
+                String guid = baseguid;
+                File file = new File(readString());
+                ret.add(new ClassInfo(name, docstring, baseguid, guid, file));
             }
         }
         return ret;
@@ -1349,7 +1440,7 @@ public class ActiveXControl {
     public void dispose() {
         if (!disposed) {
             synchronized (AXLOCK) {
-                writeComponentCommand(CMD_DESTROY);
+                writeComponentCommand(CMD_OBJ_DESTROY);
             }
             disposed = true;
         }

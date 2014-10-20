@@ -8,7 +8,7 @@ uses
   Windows,
   dialogs,
   RegAxCtrlList in 'RegAxCtrlList.pas',
-  UThreadStringList in 'UThreadStringList.pas';
+  MyComObj in 'MyComObj.pas';
 
 {$R *.res}
 
