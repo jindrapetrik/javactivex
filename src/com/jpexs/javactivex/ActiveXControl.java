@@ -1031,7 +1031,6 @@ public class ActiveXControl {
                         ((Reference) o).setVal(ActiveX.getObject(retType, cid));
                     } else {
                         String val = readString();
-                        System.out.println("Reference("+i+") assigned:"+val+" ("+type+")");
                         ((Reference) o).setVal(strToValue(type, val));                        
                     }
                 }
