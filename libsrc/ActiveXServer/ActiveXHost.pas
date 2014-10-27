@@ -408,6 +408,8 @@ begin
         LPAramTypes[Loop] := fun.Parameter(pn-Loop-1).ParamType;
       end;
       LThisParam := Params.rgvarg[Loop];
+      LParams[Loop] := Variant(LThisParam);
+      {
       case LThisParam.vt of
         VT_UI1:                  LParams[Loop] := LThisParam.bVal;
         VT_I2:                   LParams[Loop] := LThisParam.iVal;
@@ -418,14 +420,14 @@ begin
         VT_ERROR:                LParams[Loop] := LThisParam.scode;
         VT_CY:                   LParams[Loop] := LThisParam.cyVal;
         VT_DATE:                 LParams[Loop] := LThisParam.date;
-        //VT_BSTR:                 LParams[Loop] := LThisParam.bstrVal;
+        VT_BSTR:                 LParams[Loop] := OleStrToString(LThisParam.bstrVal);
         //VT_UNKNOWN:              LParams[Loop] := LThisParam.unkVal;
         //VT_DISPATCH:             LParams[Loop] := LThisParam.dispVal;
         //VT_ARRAY:                LParams[Loop] := LThisParam.parray;
         //VT_BYREF or VT_UI1:      LParams[Loop] := LThisParam.pbVal;
         //VT_BYREF or VT_I2:       LParams[Loop] := LThisParam.piVal;
         //VT_BYREF or VT_I4:       LParams[Loop] := LThisParam.plVal;
-        {VT_BYREF or VT_R4:       LParams[Loop] := LThisParam.pfltVal;
+        }{VT_BYREF or VT_R4:       LParams[Loop] := LThisParam.pfltVal;
         VT_BYREF or VT_R8:       LParams[Loop] := LThisParam.pdblVal;
         VT_BYREF or VT_BOOL:     LParams[Loop] := LThisParam.pbool;
         VT_BYREF or VT_ERROR:    LParams[Loop] := LThisParam.pscode: ^HResult);
@@ -437,18 +439,19 @@ begin
         VT_BYREF or VT_ARRAY:    LParams[Loop] := LThisParam.pparray: ^PSafeArray);
         VT_BYREF or VT_VARIANT:  LParams[Loop] := LThisParam.pvarVal: PVariant);
         VT_BYREF:                LParams[Loop] := LThisParam.byRef: Pointer);}
-        VT_I1:                   LParams[Loop] := LThisParam.cVal;
+        {VT_I1:                   LParams[Loop] := LThisParam.cVal;
         VT_UI2:                  LParams[Loop] := LThisParam.uiVal;
         VT_UI4:                  LParams[Loop] := LThisParam.ulVal;
         VT_INT:                  LParams[Loop] := LThisParam.intVal;
-        VT_UINT:                 LParams[Loop] := LThisParam.uintVal;
+        VT_UINT:                 LParams[Loop] := LThisParam.uintVal;}
         {VT_BYREF or VT_DECIMAL:  LParams[Loop] := LThisParam.pdecVal;
         VT_BYREF or VT_I1:       LParams[Loop] := LThisParam.pcVal: PChar);
         VT_BYREF or VT_UI2:      LParams[Loop] := LThisParam.puiVal: PWord);
         VT_BYREF or VT_UI4:      LParams[Loop] := LThisParam.pulVal: PInteger);
         VT_BYREF or VT_INT:      LParams[Loop] := LThisParam.pintVal: PInteger);
         VT_BYREF or VT_UINT:     LParams[Loop] := LThisParam.puintVal: PLongWord);}
-      end;
+//      end;
+
     end;
 
     FOnEvent(Self, AEventName, LParams,LParamTypes,LParamTypesStr,LParamnames);

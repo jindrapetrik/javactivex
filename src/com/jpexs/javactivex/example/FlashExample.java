@@ -87,6 +87,17 @@ public class FlashExample extends Frame {
                 System.out.println("Readystate changed:"+swfPlayer.getReadyState());
             }
         });
+        
+        swfPlayer.addFlashCallListener(new ActiveXEventListener() {
+
+            @Override
+            public void onEvent(ActiveXEvent ev) {
+                System.out.println("event:"+ev.name);
+                for(String k:ev.args.keySet()){
+                    System.out.println(""+k+"="+ev.args.get(k)+" ("+ev.argTypes.get(k)+")");
+                }
+            }
+        });        
     }
 
     /**
