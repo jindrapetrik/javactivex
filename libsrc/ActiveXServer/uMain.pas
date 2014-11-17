@@ -121,6 +121,7 @@ type
     procedure InitWatchDog;
     procedure WriteEvents;
     procedure CheckSizes;
+    procedure CreateWnd();
     procedure ActiveXEvent(Sender : TObject; EventName : string;
     EventParams : array of Variant;
     EventParamTypes : array of Variant;
@@ -508,6 +509,14 @@ begin
 
 end;
 
+procedure TPipeThread.CreateWnd;
+begin
+  if hosts[cid].isGraphical then
+  begin
+    hosts[cid].hostgraphic.CreateWnd;
+  end;
+end;
+
 procedure TPipeThread.SetParentWnd;
 begin
   if hosts[cid].isGraphical then
@@ -542,6 +551,7 @@ begin
   hosts[cid].panel.Height:=nheight;
   hosts[cid].hostgraphic.Width := nwidth;
   hosts[cid].hostgraphic.Height := nheight;
+  hosts[cid].hostgraphic.CreateWnd;
   end;
 end;
 
@@ -661,7 +671,7 @@ end;
 
 
 procedure TPipeThread.CheckSizes;
-var i:integer;
+var i:integer;u:Boolean;
 begin
   for i := 0 to length(hosts) - 1 do
    begin
@@ -669,8 +679,19 @@ begin
      begin
        if hosts[i].isGraphical then
        begin
-         if hosts[i].hostgraphic.Width<>hosts[i].width then hosts[i].hostgraphic.Width:=hosts[i].width;
-         if hosts[i].hostgraphic.Height<>hosts[i].height then hosts[i].hostgraphic.Height:=hosts[i].height;
+         u:=false;
+         if hosts[i].hostgraphic.Width<>hosts[i].width then
+         begin
+          u:=true;
+          hosts[i].hostgraphic.Width:=hosts[i].width;
+         end;
+         if hosts[i].hostgraphic.Height<>hosts[i].height then
+         begin
+           u:=true;
+           hosts[i].hostgraphic.Height:=hosts[i].height;
+         end;
+         if u then
+           hosts[i].hostgraphic.CreateWnd;
        end;
      end;
    end;

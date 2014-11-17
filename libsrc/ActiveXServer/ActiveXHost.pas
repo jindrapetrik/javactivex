@@ -52,6 +52,8 @@ type
       function GetControlClassName:string;
       function GetClassId:TGUID;
    	public
+
+      procedure CreateWnd; override;
       function GetObj:IUnknown;
       constructor CreateActiveX(AOwner : TComponent; AFileName : string; AClassID : TGUID); overload;
     	constructor CreateActiveX(AOwner : TComponent; AClassID : TGUID); overload;
@@ -84,6 +86,12 @@ uses
 	ComObj, AXCtrls, Registry, SysUtils,Messages,uMain;
 
 ////////////////////////////////////////////////////////////////////////////////
+
+
+Procedure TActiveXHost.CreateWnd;
+begin
+  inherited;
+end;
 
 constructor TActiveXHost.CreateActiveX(AOwner : TComponent; AFileName : string;
   AClassID : TGUID);
