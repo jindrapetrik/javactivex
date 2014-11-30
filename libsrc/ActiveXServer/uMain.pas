@@ -116,6 +116,7 @@ type
     procedure GetMethods;
     procedure GetEvents;
     procedure GetProperties;
+    procedure GetProperty;
     procedure CallMethod;
     procedure CancelWatchDog;
     procedure InitWatchDog;
@@ -908,6 +909,34 @@ begin
   result := FInvokeArgument;
 end;
 
+procedure TPipeThread.GetProperty;
+var
+propTypeStr:string;
+g,g2:TGUID;
+begin
+  propName := ReadString();
+                  propTypeStr := ReadString();
+                  if propTypeStr='Dispatch' then
+                  begin
+                    g := StringToGUID(ReadString());
+                    g2 := StringToGUID(ReadString());
+                  end;
+                  if hosts[cid].host.Properties.IndexOf(propName)=-1 then
+                  begin
+                    WriteFail('Property does not exist');
+                  end
+                  else
+                  begin
+                    try
+                     propVal := hosts[cid].host.PropertyValue[propName];
+                     writeOK;
+                     WriteValue(propVal,g,g2);
+                    except
+                     on e:Exception do WriteFail(e);
+                    end;
+                   end;
+end;
+
 procedure TPipeThread.CallMethod;
 var a:array of TVariantArg;
 i:integer;
@@ -987,7 +1016,6 @@ procedure TPipeThread.Execute();
 var
   pipename: PAnsiChar;
   cmd: integer;
-  propTypeStr:string;
   i: Integer;
   LTypeLibVwr : TTypeLibViewer;
   ok : boolean;
@@ -1194,23 +1222,7 @@ begin
               Synchronize(CheckCid);
               if cid<>-1 then
               begin
-                  propName := ReadString();
-                  propTypeStr := ReadString();
-                  if propTypeStr='Dispatch' then
-                  begin
-                    g := StringToGUID(ReadString());
-                    g2 := StringToGUID(ReadString());
-                  end;
-                  if hosts[cid].host.Properties.IndexOf(propName)=-1 then
-                  begin
-                    WriteFail('Property does not exist');
-                  end
-                  else
-                  begin
-                    propVal := hosts[cid].host.PropertyValue[propName];
-                    writeOK;
-                    WriteValue(propVal,g,g2);
-                   end;
+                  Synchronize(GetProperty);
               end;
             end;
             CMD_OBJ_SET_PROPERTY:
