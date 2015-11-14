@@ -219,8 +219,7 @@ var buf:TBuf;
 var len:integer;
 var us:UTF8String;
 begin
-  ReadPipe(self.pipe,buf,1);
-  len:=buf[0];
+  len := ReadUI32();
   if len = 0 then
   begin
     Result:='';
@@ -330,7 +329,7 @@ begin
   s := UTF8Encode(val);
   len := Length(s);
   CopyMemory(@a[0], @s[1], len);
-  WriteUI8(len);
+  WriteUI32(len);
   WritePipe(self.pipe,a,len);
 end;
 

@@ -72,7 +72,6 @@ public class ActiveXControl {
     private String progId;
     private boolean attached = false;
     private String className;
-        
 
     private static final int ECHO_INTERVAL = 100;
 
@@ -152,10 +151,10 @@ public class ActiveXControl {
 
             @Override
             public void run() {
-                
-                try{
-                  echo();
-                }catch(Exception ex){
+
+                try {
+                    echo();
+                } catch (Exception ex) {
                     ex.printStackTrace();
                 }
                 /*
@@ -178,9 +177,9 @@ public class ActiveXControl {
     }
 
     private static boolean unloaded = false;
-    
-    public static void unload(){
-        if(unloaded){
+
+    public static void unload() {
+        if (unloaded) {
             return;
         }
         writeCommand(CMD_DESTROYALL);
@@ -188,13 +187,13 @@ public class ActiveXControl {
         Kernel32.INSTANCE.TerminateProcess(process, 0);
         unloaded = true;
     }
-    
+
     private static Map<Long, Map<String, List<ActiveXEventListener>>> listeners = new HashMap<>();
 
     public String getClassName() {
         return className;
-    }   
-    
+    }
+
     private static void addControlEventListener(String eventName, ActiveXControl control, ActiveXEventListener listener) {
         if (!listeners.containsKey(control.cid)) {
             listeners.put(control.cid, new HashMap<String, List<ActiveXEventListener>>());
@@ -380,8 +379,8 @@ public class ActiveXControl {
     }
 
     private static Object strToValue(String type, String value) {
-        if(type.startsWith("ByRef ")){
-            type=type.substring("ByRef ".length());
+        if (type.startsWith("ByRef ")) {
+            type = type.substring("ByRef ".length());
         }
         try {
             switch (type) {
@@ -966,7 +965,7 @@ public class ActiveXControl {
             return readStrings();
         }
     }
-    
+
     /**
      * Call method on object with array arguments
      *
@@ -974,7 +973,7 @@ public class ActiveXControl {
      * @param args Call arguments
      * @return Return value of method
      */
-    public <E> E callMethodArr(String methodName, Object[] args, Class[] paramTypes,Type[] genericParamTypes, Class<E> retType) {
+    public <E> E callMethodArr(String methodName, Object[] args, Class[] paramTypes, Type[] genericParamTypes, Class<E> retType) {
         synchronized (AXLOCK) {
             writeComponentCommand(CMD_OBJ_CALL_METHOD);
             writeString(methodName);
@@ -984,9 +983,9 @@ public class ActiveXControl {
                 Object o = args[i];
                 Class c = paramTypes[i];
                 if (Reference.class.isAssignableFrom(c)) {
-                    o = ((Reference) o).getVal();                    
-                    ParameterizedType s=(ParameterizedType)genericParamTypes[i];
-                    c = (Class)s.getActualTypeArguments()[0];                   
+                    o = ((Reference) o).getVal();
+                    ParameterizedType s = (ParameterizedType) genericParamTypes[i];
+                    c = (Class) s.getActualTypeArguments()[0];
                     writeString("Reference");
                 }
                 GUID g = (GUID) c.getAnnotation(GUID.class);
@@ -1031,7 +1030,7 @@ public class ActiveXControl {
                         ((Reference) o).setVal(ActiveX.getObject(retType, cid));
                     } else {
                         String val = readString();
-                        ((Reference) o).setVal(strToValue(type, val));                        
+                        ((Reference) o).setVal(strToValue(type, val));
                     }
                 }
             }
@@ -1041,7 +1040,7 @@ public class ActiveXControl {
                 long cid = readUI32();
                 return ActiveX.getObject(retType, cid);
             } else {
-                String val = readString();             
+                String val = readString();
                 return (E) strToValue(type, val);
             }
         }
@@ -1057,7 +1056,7 @@ public class ActiveXControl {
     }
 
     private static String readString() {
-        int len = readUI8();
+        int len = (int) readUI32();
         byte data[] = new byte[len];
         read(data);
         try {
@@ -1132,7 +1131,7 @@ public class ActiveXControl {
         } catch (UnsupportedEncodingException ex) {
             data = s.getBytes();
         }
-        writeUI8(data.length);
+        writeUI32(data.length);
         write(data);
     }
 
@@ -1147,7 +1146,7 @@ public class ActiveXControl {
         }
         return 0;
     }
-    
+
     /**
      * Converts ProgId to suitable Java class name
      *
@@ -1270,17 +1269,17 @@ public class ActiveXControl {
             "AddRef", "Release", "QueryInterface", //IUnknown
             "GetIDsOfNames", "GetTypeInfo", "GetTypeInfoCount", "Invoke" //IDispatch
         };
-        
-        List<String> events=getEventNames(baseguid, guid);
-        for(String event:events){
+
+        List<String> events = getEventNames(baseguid, guid);
+        for (String event : events) {
             sb.append(nl);
             sb.append("\t/**").append(nl);
             sb.append("\t * Adds ").append(event).append(" event listener").append(nl);
-            sb.append("\t * @param l Event listener").append(nl);            
+            sb.append("\t * @param l Event listener").append(nl);
             sb.append("\t */").append(nl);
             sb.append("\t@AddListener(\"").append(event).append("\")").append(nl);
             sb.append("\tpublic void add").append(firstToUpperCase(event)).append("Listener(ActiveXEventListener l);").append(nl);
-            
+
             sb.append(nl);
             sb.append("\t/**").append(nl);
             sb.append("\t * Removes ").append(event).append(" event listener").append(nl);
@@ -1371,7 +1370,7 @@ public class ActiveXControl {
                 sb.append(propName).append(" value").append(nl);
                 sb.append("\t */").append(nl);
                 sb.append("\t@Getter(\"").append(propName).append("\")").append(nl);
-                sb.append("\tpublic ").append(typeToStr(type)).append(" get").append(firstToUpperCase(propName)).append(methodExists(baseguid, guid, "get" + firstToUpperCase(propName)) ? "_" : "").append("();").append(nl);               
+                sb.append("\tpublic ").append(typeToStr(type)).append(" get").append(firstToUpperCase(propName)).append(methodExists(baseguid, guid, "get" + firstToUpperCase(propName)) ? "_" : "").append("();").append(nl);
             }
 
             if (p.writable) {
@@ -1386,7 +1385,7 @@ public class ActiveXControl {
                 sb.append("New ").append(propName).append(" value").append(nl);
                 sb.append("\t */").append(nl);
                 sb.append("\t@Setter(\"").append(propName).append("\")").append(nl);
-                sb.append("\tpublic void set").append(firstToUpperCase(propName)).append(methodExists(baseguid, guid, "set" + firstToUpperCase(propName)) ? "_" : "").append("(").append(type).append(" value);").append(nl);                
+                sb.append("\tpublic void set").append(firstToUpperCase(propName)).append(methodExists(baseguid, guid, "set" + firstToUpperCase(propName)) ? "_" : "").append("(").append(type).append(" value);").append(nl);
             }
         }
 
