@@ -8,6 +8,7 @@ uses
 
 const
   MAX_EVENT_COUNT = 1000;
+  MAX_STRING_LENGTH = 65535;
   dolog = false;
 
 type
@@ -134,7 +135,10 @@ type
   public
 
   end;
-  TBuf = array[0..255] of byte;
+
+
+
+  TBuf = array[0..MAX_STRING_LENGTH-1] of byte;
 
 
 
@@ -325,11 +329,12 @@ procedure TPipeThread.WriteString(val: widestring);
  var a:TBuf;
  len:integer;
  s: UTF8String;
+ i:integer;
 begin
   s := UTF8Encode(val);
   len := Length(s);
-  CopyMemory(@a[0], @s[1], len);
   WriteUI32(len);
+  CopyMemory(@a[0], @s[1], len);
   WritePipe(self.pipe,a,len);
 end;
 
