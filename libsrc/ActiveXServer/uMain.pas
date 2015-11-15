@@ -8,7 +8,7 @@ uses
 
 const
   MAX_EVENT_COUNT = 1000;
-  BLOCK_SIZE = 255;
+  BLOCK_SIZE = 256;
   dolog = false;
 
 type
