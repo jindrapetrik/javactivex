@@ -8,6 +8,7 @@ uses
 
 const
   MAX_EVENT_COUNT = 1000;
+  BLOCK_SIZE = 255;
   dolog = false;
 
 type
@@ -135,7 +136,11 @@ type
 
   end;
 
-  TBuf = array of byte;
+
+
+  TBuf = array[0..BLOCK_SIZE-1] of byte;
+
+
 
 var
   frmMain: TfrmMain;
@@ -217,6 +222,8 @@ function TPipeThread.ReadString():WideString;
 var buf:TBuf;
 var len:integer;
 var us:UTF8String;
+var pos:integer;
+blklen:integer;
 begin
   len := ReadUI32();
   if len = 0 then
@@ -224,17 +231,25 @@ begin
     Result:='';
     exit;
   end;
-  SetLength(buf,len);
-  ReadPipe(pipe,buf,len);
+  pos := 0;
   SetLength(us,len);
-  CopyMemory(@us[1], @buf[0], len);
+
+  while pos < len do
+  begin
+    if pos + BLOCK_SIZE <= len then
+      blklen := BLOCK_SIZE
+    else
+      blklen := len - pos;
+    ReadPipe(pipe,buf,blklen);
+    CopyMemory(@us[1+pos], @buf[0], blklen);
+    pos := pos + blklen;
+  end;
   Result:=UTF8Decode(us);
 end;
 
 function TPipeThread.ReadUI8():byte;
 var buf:TBuf;
 begin
-  SetLength(buf,1);
   ReadPipe(self.pipe,buf,1);
   Result:=buf[0];
 end;
@@ -268,7 +283,6 @@ end;
 function TPipeThread.ReadUI16():word;
 var buf:TBuf;
 begin
-  SetLength(buf,2);
   ReadPipe(self.pipe,buf,2);
   Result:=(buf[0] shl 8) + buf[1];
 end;
@@ -281,7 +295,6 @@ end;
 function TPipeThread.ReadUI32():cardinal;
 var buf:TBuf;
 begin
-  SetLength(buf,4);
   ReadPipe(pipe,buf,4);
   Result:=(buf[0] shl 24)+(buf[1] shl 16)+(buf[2] shl 8) + buf[3];
 end;
@@ -301,7 +314,6 @@ end;
 procedure TPipeThread.WriteUI8(val:byte);
 var buf:TBuf;
 begin
-  SetLength(buf,1);
   buf[0] := val;
   WritePipe(self.pipe,buf,1);
 end;
@@ -309,7 +321,6 @@ end;
 procedure TPipeThread.WriteUI16(val:word);
 var buf:TBuf;
 begin
-  SetLength(buf,2);
   buf[0] := (val shr 8) mod 256;
   buf[1] := val mod 256;
   WritePipe(self.pipe,buf,2);
@@ -318,7 +329,6 @@ end;
 procedure TPipeThread.WriteUI32(val:cardinal);
 var buf:TBuf;
 begin
-  SetLength(buf,4);
   buf[0] := (val shr 24) mod 256;
   buf[1] := (val shr 16) mod 256;
   buf[2] := (val shr 8) mod 256;
@@ -331,14 +341,23 @@ procedure TPipeThread.WriteString(val: widestring);
  var a:TBuf;
  len:integer;
  s: UTF8String;
- i:integer;
+ blklen : integer;
+ pos :integer;
 begin
   s := UTF8Encode(val);
   len := Length(s);
   WriteUI32(len);
-  SetLength(a,len);
-  CopyMemory(@a[0], @s[1], len);
-  WritePipe(self.pipe,a,len);
+  pos := 0;
+  while pos < len  do
+  begin
+    if pos + BLOCK_SIZE <= len then
+      blklen := BLOCK_SIZE
+    else
+      blklen := len - pos;
+    CopyMemory(@a[0], @s[1+pos], blklen);
+    WritePipe(self.pipe,a,blklen);
+    pos := pos + blklen;
+  end;
 end;
 
 procedure TPipeThread.WriteStrings(val: TStrings);
